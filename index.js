@@ -108,8 +108,9 @@ app.get('/api/playlist/:id', async (req, res) => {
   let token;
   try {
     token = await getValidToken();
-  } catch {
-    return res.status(401).json({ error: 'Not authenticated. Visit /auth/login first.' });
+  } catch (err) {
+    console.error('Token error:', err.response?.status, JSON.stringify(err.response?.data) || err.message);
+    return res.status(401).json({ error: 'Not authenticated. Visit /auth/login first.', detail: err.response?.data || err.message });
   }
 
   try {
