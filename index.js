@@ -138,7 +138,11 @@ app.get('/api/playlist/:id', async (req, res) => {
     });
   } catch (err) {
     console.error('Playlist error:', err.response?.status, JSON.stringify(err.response?.data) || err.message);
-    res.status(500).json({ error: 'Spotify API 오류' });
+    res.status(err.response?.status || 500).json({
+      error: 'Spotify API 오류',
+      status: err.response?.status,
+      detail: err.response?.data || err.message,
+    });
   }
 });
 
