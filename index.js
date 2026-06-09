@@ -114,21 +114,32 @@ app.get('/api/playlist/:id', async (req, res) => {
   }
 
   try {
-    const [playlistRes, tracksRes] = await Promise.all([
-      axios.get(`https://api.spotify.com/v1/playlists/${req.params.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      }),
-      axios.get(`https://api.spotify.com/v1/playlists/${req.params.id}/tracks`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-    ]);
+    // Try the tracks sub-endpoint first; fall back to inline tracks from playlist object
+    const playlistRes = await axios.get(
+      `https://api.spotify.com/v1/playlists/${req.params.id}`,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
 
-    const tracks = tracksRes.data.items
+    let rawTracks = [];
+    try {
+      const tracksRes = await axios.get(
+        `https://api.spotify.com/v1/playlists/${req.params.id}/tracks`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      rawTracks = tracksRes.data.items;
+    } catch (tracksErr) {
+      // Spotify dev-mode restriction: tracks sub-endpoint blocked
+      // Fall back to tracks embedded in the playlist object if present
+      console.warn('Tracks sub-endpoint blocked:', tracksErr.response?.status, '— using fallback');
+      rawTracks = playlistRes.data.tracks?.items || [];
+    }
+
+    const tracks = rawTracks
       .filter(item => item.track)
       .map(item => ({
         title: item.track.name,
         artist: item.track.artists[0]?.name ?? 'Unknown',
-        spotifyUrl: item.track.external_urls.spotify
+        spotifyUrl: item.track.external_urls.spotify,
       }));
 
     res.json({
