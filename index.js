@@ -384,6 +384,176 @@ app.get('/api/flo/playlist', async (req, res) => {
   }
 });
 
+// ── Genie ───────────────────────────────────────────────────────────────────
+
+const GENIE_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Referer': 'https://www.genie.co.kr/',
+};
+
+function parseGenieTracks(html) {
+  const $ = cheerio.load(html);
+  const tracks = [];
+
+  $('tr.list').each((_, el) => {
+    const title = $(el).find('a.title').first().attr('title')?.trim();
+    const artist = $(el).find('a.artist').first().text().trim();
+    if (title) tracks.push({ title, artist: artist || '아티스트 미상' });
+  });
+
+  return tracks;
+}
+
+app.get('/api/genie/playlist', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+
+  if (!inputUrl) {
+    return res.status(400).json({ error: 'url 쿼리 파라미터가 필요해요' });
+  }
+  if (!inputUrl.includes('genie.co.kr')) {
+    return res.status(400).json({ error: 'Genie 링크만 지원해요' });
+  }
+
+  try {
+    // genie.co.kr short links redirect to the playlist detail page automatically
+    const response = await axios.get(inputUrl, {
+      headers: GENIE_HEADERS,
+      maxRedirects: 5,
+    });
+    const finalUrl = response.request?.res?.responseUrl || inputUrl;
+
+    const match = finalUrl.match(/pl[ym]Seq=(\d+)/);
+    if (!match) {
+      return res.status(400).json({ error: '플레이리스트 ID를 찾을 수 없어요', resolvedUrl: finalUrl });
+    }
+
+    const tracks = parseGenieTracks(response.data);
+    if (tracks.length === 0) {
+      return res.status(404).json({ error: '곡 목록을 찾을 수 없어요', plmSeq: match[1] });
+    }
+
+    res.json({ plmSeq: match[1], tracks });
+  } catch (err) {
+    console.error('Genie scrape error:', err.response?.status, err.message);
+    res.status(err.response?.status || 500).json({ error: 'Genie 스크래핑 오류', detail: err.message });
+  }
+});
+
+// ── YouTube ─────────────────────────────────────────────────────────────────
+
+const YOUTUBE_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept-Language': 'ko-KR,ko;q=0.9',
+};
+
+// www.youtube.com/playlist pages embed a `var ytInitialData = {...};` JSON blob
+// containing the video list as lockupViewModel items (newer layout) or
+// playlistVideoRenderer items (older layout).
+function parseYoutubeTracks(html) {
+  const match = html.match(/var ytInitialData\s*=\s*(\{.*?\});<\/script>/s);
+  if (!match) return [];
+
+  let data;
+  try {
+    data = JSON.parse(match[1]);
+  } catch (_) {
+    return [];
+  }
+
+  const contents = data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]
+    ?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]
+    ?.itemSectionRenderer?.contents || [];
+
+  const tracks = [];
+  for (const item of contents) {
+    if (item.lockupViewModel) {
+      const meta = item.lockupViewModel.metadata?.lockupMetadataViewModel;
+      const title = meta?.title?.content;
+      const artist = meta?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts?.[0]?.text?.content;
+      if (title) tracks.push({ title, artist: artist || '아티스트 미상' });
+      continue;
+    }
+
+    const r = item.playlistVideoRenderer;
+    if (r) {
+      const title = r.title?.runs?.[0]?.text || r.title?.simpleText;
+      const artist = r.shortBylineText?.runs?.[0]?.text;
+      if (title) tracks.push({ title, artist: artist || '아티스트 미상' });
+    }
+  }
+
+  return tracks;
+}
+
+// music.youtube.com/playlist pages embed the playlist data as a JS-string-escaped
+// JSON blob inside `initialData.push({path: '/browse', ..., data: '...'})`.
+function parseYoutubeMusicTracks(html) {
+  const match = html.match(/initialData\.push\(\{path:\s*'\\\/browse'.*?data:\s*'((?:[^'\\]|\\.)*)'\}\);/s);
+  if (!match) return [];
+
+  let data;
+  try {
+    let raw = match[1];
+    raw = raw.replace(/\\x([0-9a-fA-F]{2})/g, '\\u00$1');
+    raw = raw.replace(/\\'/g, "'");
+    const jsonText = JSON.parse(`"${raw}"`);
+    data = JSON.parse(jsonText);
+  } catch (_) {
+    return [];
+  }
+
+  const shelf = data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents
+    ?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer;
+  const items = shelf?.contents || [];
+
+  const tracks = [];
+  for (const item of items) {
+    const r = item.musicResponsiveListItemRenderer;
+    if (!r) continue;
+    const title = r.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
+    const artist = r.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.map(run => run.text).join('');
+    if (title) tracks.push({ title, artist: artist || '아티스트 미상' });
+  }
+
+  return tracks;
+}
+
+app.get('/api/youtube/playlist', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+
+  if (!inputUrl) {
+    return res.status(400).json({ error: 'url 쿼리 파라미터가 필요해요' });
+  }
+  if (!inputUrl.includes('youtube.com')) {
+    return res.status(400).json({ error: 'YouTube 링크만 지원해요' });
+  }
+
+  const match = inputUrl.match(/[?&]list=([A-Za-z0-9_-]+)/);
+  if (!match) {
+    return res.status(400).json({ error: '플레이리스트 ID를 찾을 수 없어요' });
+  }
+  const listId = match[1];
+  const isMusic = inputUrl.includes('music.youtube.com');
+
+  try {
+    const url = isMusic
+      ? `https://music.youtube.com/playlist?list=${listId}`
+      : `https://www.youtube.com/playlist?list=${listId}`;
+
+    const response = await axios.get(url, { headers: YOUTUBE_HEADERS });
+    const tracks = isMusic ? parseYoutubeMusicTracks(response.data) : parseYoutubeTracks(response.data);
+
+    if (tracks.length === 0) {
+      return res.status(404).json({ error: '곡 목록을 찾을 수 없어요', listId });
+    }
+
+    res.json({ listId, tracks });
+  } catch (err) {
+    console.error('YouTube scrape error:', err.response?.status, err.message);
+    res.status(err.response?.status || 500).json({ error: 'YouTube 스크래핑 오류', detail: err.message });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
