@@ -293,6 +293,73 @@ app.get('/api/melon/playlist', async (req, res) => {
   }
 });
 
+// ── FLO ─────────────────────────────────────────────────────────────────────
+
+const FLO_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'application/json',
+  'Referer': 'https://www.music-flo.com/',
+};
+
+function parseFloTracks(data) {
+  const trackList = data?.trackList || [];
+  return trackList.map(track => ({
+    title: track.name,
+    artist: track.representationArtist?.name || track.artistList?.[0]?.name || '아티스트 미상',
+  }));
+}
+
+app.get('/api/flo/playlist', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+
+  if (!inputUrl) {
+    return res.status(400).json({ error: 'url 쿼리 파라미터가 필요해요' });
+  }
+  if (!inputUrl.includes('music-flo.com')) {
+    return res.status(400).json({ error: 'FLO 링크만 지원해요' });
+  }
+
+  const match = inputUrl.match(/\/detail\/(playlist|openplaylist|pri-playlist|pri_playlist)\/(\d+)/);
+  if (!match) {
+    return res.status(400).json({ error: '플레이리스트 ID를 찾을 수 없어요' });
+  }
+  const [, type, id] = match;
+
+  const endpoints = type === 'playlist'
+    ? [`https://www.music-flo.com/api/meta/v1/channel/${id}`, `https://www.music-flo.com/api/personal/v1/playlist/${id}`]
+    : type === 'openplaylist'
+      ? [`https://www.music-flo.com/api/personal/v1/playlist/${id}`, `https://www.music-flo.com/api/meta/v1/channel/${id}`]
+      : [`https://www.music-flo.com/api/personal/v1/pri_playlist/${id}`];
+
+  try {
+    let tracks = [];
+    let lastError;
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await axios.get(endpoint, { headers: FLO_HEADERS });
+        if (response.data?.code !== '2000000') {
+          lastError = response.data?.message;
+          continue;
+        }
+        tracks = parseFloTracks(response.data.data);
+        if (tracks.length > 0) break;
+      } catch (err) {
+        lastError = err.message;
+      }
+    }
+
+    if (tracks.length === 0) {
+      return res.status(404).json({ error: '곡 목록을 찾을 수 없어요', detail: lastError });
+    }
+
+    res.json({ id, tracks });
+  } catch (err) {
+    console.error('FLO scrape error:', err.response?.status, err.message);
+    res.status(err.response?.status || 500).json({ error: 'FLO 스크래핑 오류', detail: err.message });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
