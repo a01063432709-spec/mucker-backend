@@ -226,14 +226,31 @@ const MELON_HEADERS = {
   'Referer': 'https://www.melon.com/',
 };
 
-// kko.to short links redirect to the real melon.com playlist URL
+// kko.to short links redirect through an into.melon.com gate page (which embeds
+// the real destination in a `landingUrl` query param) before reaching the
+// final melon.com playlist URL — follow the chain until it settles.
 async function resolveMelonUrl(inputUrl) {
   if (!inputUrl.includes('kko.to')) return inputUrl;
-  const response = await axios.get(inputUrl, {
-    headers: MELON_HEADERS,
-    maxRedirects: 5,
-  });
-  return response.request?.res?.responseUrl || inputUrl;
+
+  let url = inputUrl;
+
+  for (let i = 0; i < 3; i++) {
+    const response = await axios.get(url, {
+      headers: MELON_HEADERS,
+      maxRedirects: 5,
+    });
+    const finalUrl = response.request?.res?.responseUrl || url;
+
+    let landingUrl;
+    try {
+      landingUrl = new URL(finalUrl).searchParams.get('landingUrl');
+    } catch (_) {}
+
+    if (!landingUrl) return finalUrl;
+    url = decodeURIComponent(landingUrl);
+  }
+
+  return url;
 }
 
 function parseMelonTracks(html) {
