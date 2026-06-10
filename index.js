@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
+const cheerio = require('cheerio');
 
 const app = express();
 app.use(cors());
@@ -215,6 +216,80 @@ app.get('/api/apple/playlist/:id', async (req, res) => {
   } catch (err) {
     console.error('Apple Music error:', err.response?.status, JSON.stringify(err.response?.data) || err.message);
     res.status(err.response?.status || 500).json({ error: 'Apple Music API 오류' });
+  }
+});
+
+// ── Melon ───────────────────────────────────────────────────────────────────
+
+const MELON_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Referer': 'https://www.melon.com/',
+};
+
+// kko.to short links redirect to the real melon.com playlist URL
+async function resolveMelonUrl(inputUrl) {
+  if (!inputUrl.includes('kko.to')) return inputUrl;
+  const response = await axios.get(inputUrl, {
+    headers: MELON_HEADERS,
+    maxRedirects: 5,
+  });
+  return response.request?.res?.responseUrl || inputUrl;
+}
+
+function parseMelonTracks(html) {
+  const $ = cheerio.load(html);
+  const tracks = [];
+
+  $('tr').each((_, el) => {
+    const title = $(el).find('.ellipsis.rank01 a[title]').first().text().trim();
+    const artist = $(el).find('.ellipsis.rank02 a').first().text().trim();
+    if (title) tracks.push({ title, artist: artist || '아티스트 미상' });
+  });
+
+  return tracks;
+}
+
+app.get('/api/melon/playlist', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+
+  if (!inputUrl) {
+    return res.status(400).json({ error: 'url 쿼리 파라미터가 필요해요' });
+  }
+  if (!inputUrl.includes('melon.com') && !inputUrl.includes('kko.to')) {
+    return res.status(400).json({ error: 'Melon 또는 kko.to 링크만 지원해요' });
+  }
+
+  try {
+    const resolvedUrl = await resolveMelonUrl(inputUrl);
+    const match = resolvedUrl.match(/plylstSeq=(\d+)/);
+    if (!match) {
+      return res.status(400).json({ error: '플레이리스트 ID를 찾을 수 없어요', resolvedUrl });
+    }
+    const plylstSeq = match[1];
+
+    const listRes = await axios.get('https://www.melon.com/mymusic/dj/mymusicdjplaylistview_listSong.htm', {
+      params: { plylstSeq, startIndex: 1, pageSize: 1000 },
+      headers: MELON_HEADERS,
+    });
+
+    let tracks = parseMelonTracks(listRes.data);
+
+    if (tracks.length === 0) {
+      const viewRes = await axios.get('https://www.melon.com/mymusic/dj/mymusicdjplaylistview_inform.htm', {
+        params: { plylstSeq },
+        headers: MELON_HEADERS,
+      });
+      tracks = parseMelonTracks(viewRes.data);
+    }
+
+    if (tracks.length === 0) {
+      return res.status(404).json({ error: '곡 목록을 찾을 수 없어요', plylstSeq });
+    }
+
+    res.json({ plylstSeq, tracks });
+  } catch (err) {
+    console.error('Melon scrape error:', err.response?.status, err.message);
+    res.status(err.response?.status || 500).json({ error: 'Melon 스크래핑 오류', detail: err.message });
   }
 });
 
