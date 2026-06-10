@@ -267,20 +267,11 @@ app.get('/api/melon/playlist', async (req, res) => {
     }
     const plylstSeq = match[1];
 
-    const listRes = await axios.get('https://www.melon.com/mymusic/dj/mymusicdjplaylistview_listSong.htm', {
-      params: { plylstSeq, startIndex: 1, pageSize: 1000 },
+    const viewRes = await axios.get('https://www.melon.com/mymusic/dj/mymusicdjplaylistview_inform.htm', {
+      params: { plylstSeq },
       headers: MELON_HEADERS,
     });
-
-    let tracks = parseMelonTracks(listRes.data);
-
-    if (tracks.length === 0) {
-      const viewRes = await axios.get('https://www.melon.com/mymusic/dj/mymusicdjplaylistview_inform.htm', {
-        params: { plylstSeq },
-        headers: MELON_HEADERS,
-      });
-      tracks = parseMelonTracks(viewRes.data);
-    }
+    const tracks = parseMelonTracks(viewRes.data);
 
     if (tracks.length === 0) {
       return res.status(404).json({ error: '곡 목록을 찾을 수 없어요', plylstSeq });
