@@ -310,11 +310,26 @@ const FLO_HEADERS = {
 };
 
 function parseFloTracks(data) {
-  const trackList = data?.trackList || [];
+  const trackList = data?.trackList || data?.track?.list || [];
   return trackList.map(track => ({
     title: track.name,
     artist: track.representationArtist?.name || track.artistList?.[0]?.name || '아티스트 미상',
   }));
+}
+
+// flomuz.io short links land on a share.music-flo.com page whose __NEXT_DATA__
+// JSON embeds the real /detail/... playlist URL under data.webLink.
+async function resolveFloUrl(inputUrl) {
+  if (!inputUrl.includes('flomuz.io')) return inputUrl;
+
+  const response = await axios.get(inputUrl, {
+    headers: { 'User-Agent': FLO_HEADERS['User-Agent'] },
+    maxRedirects: 5,
+  });
+  const $ = cheerio.load(response.data);
+  const nextData = JSON.parse($('#__NEXT_DATA__').text() || '{}');
+  const data = nextData?.props?.pageProps?.data;
+  return data?.webLink || data?.mobileWebLink || inputUrl;
 }
 
 app.get('/api/flo/playlist', async (req, res) => {
@@ -323,13 +338,14 @@ app.get('/api/flo/playlist', async (req, res) => {
   if (!inputUrl) {
     return res.status(400).json({ error: 'url 쿼리 파라미터가 필요해요' });
   }
-  if (!inputUrl.includes('music-flo.com')) {
+  if (!inputUrl.includes('music-flo.com') && !inputUrl.includes('flomuz.io')) {
     return res.status(400).json({ error: 'FLO 링크만 지원해요' });
   }
 
-  const match = inputUrl.match(/\/detail\/(playlist|openplaylist|pri-playlist|pri_playlist)\/(\d+)/);
+  const resolvedUrl = await resolveFloUrl(inputUrl);
+  const match = resolvedUrl.match(/\/detail\/(playlist|openplaylist|pri-playlist|pri_playlist)\/(\d+)/);
   if (!match) {
-    return res.status(400).json({ error: '플레이리스트 ID를 찾을 수 없어요' });
+    return res.status(400).json({ error: '플레이리스트 ID를 찾을 수 없어요', resolvedUrl });
   }
   const [, type, id] = match;
 
