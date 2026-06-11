@@ -902,8 +902,9 @@ app.get('/api/meta/song', async (req, res) => {
       return res.json({ title, artist });
     }
 
-    if (inputUrl.includes('melon.com')) {
-      const m = inputUrl.match(/[?&]songId=(\d+)/);
+    if (inputUrl.includes('melon.com') || inputUrl.includes('kko.to')) {
+      const resolvedUrl = await resolveMelonUrl(inputUrl);
+      const m = resolvedUrl.match(/[?&]songId=(\d+)/);
       if (!m) return res.json({});
       const resp = await axios.get('https://www.melon.com/song/detail.htm', {
         params: { songId: m[1] },
