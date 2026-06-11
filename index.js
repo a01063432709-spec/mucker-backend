@@ -757,6 +757,194 @@ app.get('/api/youtube/validate', async (req, res) => {
   }
 });
 
+// ── Auto-fill metadata ───────────────────────────────────────────────────────
+
+// Given a playlist link on any supported platform, best-effort extract its
+// display name so the create form can be pre-filled. Returns {} if unknown.
+app.get('/api/meta/playlist', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+  if (!inputUrl) return res.json({});
+
+  try {
+    if (inputUrl.includes('open.spotify.com')) {
+      const m = inputUrl.match(/\/playlist\/([A-Za-z0-9]{22})/);
+      if (!m) return res.json({});
+      const token = await getValidToken();
+      const resp = await axios.get(`https://api.spotify.com/v1/playlists/${m[1]}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { fields: 'name' },
+      });
+      return res.json({ name: resp.data.name || '' });
+    }
+
+    if (inputUrl.includes('music.apple.com')) {
+      const m = inputUrl.match(/music\.apple\.com\/(\w{2})\/playlist\/[^\/?]+\/(pl\.[\w.-]+)/);
+      if (!m) return res.json({});
+      const devToken = getAppleDeveloperToken();
+      const resp = await axios.get(`https://api.music.apple.com/v1/catalog/${m[1]}/playlists/${m[2]}`, {
+        headers: { Authorization: `Bearer ${devToken}` },
+        params: { fields: 'name' },
+      });
+      return res.json({ name: resp.data.data?.[0]?.attributes?.name || '' });
+    }
+
+    if (inputUrl.includes('music.youtube.com') || inputUrl.includes('youtube.com/playlist')) {
+      const m = inputUrl.match(/[?&]list=([A-Za-z0-9_-]+)/);
+      if (!m) return res.json({});
+      const resp = await axios.get('https://www.youtube.com/oembed', {
+        params: { url: `https://www.youtube.com/playlist?list=${m[1]}`, format: 'json' },
+      });
+      return res.json({ name: resp.data.title || '' });
+    }
+
+    if (inputUrl.includes('melon.com') || inputUrl.includes('kko.to')) {
+      const resolvedUrl = await resolveMelonUrl(inputUrl);
+      const m = resolvedUrl.match(/plylstSeq=(\d+)/);
+      if (!m) return res.json({});
+      const viewRes = await axios.get('https://www.melon.com/mymusic/dj/mymusicdjplaylistview_inform.htm', {
+        params: { plylstSeq: m[1] },
+        headers: MELON_HEADERS,
+      });
+      if (parseMelonTracks(viewRes.data).length === 0) return res.json({});
+
+      const $ = cheerio.load(viewRes.data);
+      let name = $('meta[property="og:title"]').attr('content') || $('.tit_playlist').first().text().trim();
+      name = (name || '').replace(/\s*-\s*멜론\s*$/, '').trim();
+      if (!name || name === 'Melon') return res.json({});
+      return res.json({ name });
+    }
+
+    if (inputUrl.includes('music-flo.com') || inputUrl.includes('flomuz.io')) {
+      const resolvedUrl = await resolveFloUrl(inputUrl);
+      const m = resolvedUrl.match(/\/detail\/(playlist|openplaylist|pri-playlist|pri_playlist)\/(\d+)/);
+      if (!m) return res.json({});
+      const [, type, id] = m;
+      const endpoints = type === 'playlist'
+        ? [`https://www.music-flo.com/api/meta/v1/channel/${id}`, `https://www.music-flo.com/api/personal/v1/playlist/${id}`]
+        : type === 'openplaylist'
+          ? [`https://www.music-flo.com/api/personal/v1/playlist/${id}`, `https://www.music-flo.com/api/meta/v1/channel/${id}`]
+          : [`https://www.music-flo.com/api/personal/v1/pri_playlist/${id}`];
+
+      for (const endpoint of endpoints) {
+        try {
+          const resp = await axios.get(endpoint, { headers: FLO_HEADERS });
+          if (resp.data?.code === '2000000') {
+            const name = resp.data.data?.name || resp.data.data?.title || '';
+            if (name) return res.json({ name });
+          }
+        } catch (_) {}
+      }
+      return res.json({});
+    }
+
+    if (inputUrl.includes('genie.co.kr')) {
+      const resp = await axios.get(inputUrl, { headers: GENIE_HEADERS, maxRedirects: 5 });
+      const $ = cheerio.load(resp.data);
+      const ogTitle = $('meta[property="og:title"]').attr('content') || '';
+      const m = ogTitle.match(/^(.*)\s*-\s*genie$/i);
+      if (!m) return res.json({});
+      return res.json({ name: m[1].trim() });
+    }
+
+    return res.json({});
+  } catch (err) {
+    console.error('Meta playlist error:', err.response?.status, err.message);
+    return res.json({});
+  }
+});
+
+// Given a single-track link on any supported platform, best-effort extract its
+// title and artist so the share form can be pre-filled. Returns {} if unknown.
+app.get('/api/meta/song', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+  if (!inputUrl) return res.json({});
+
+  try {
+    if (inputUrl.includes('open.spotify.com')) {
+      const m = inputUrl.match(/\/track\/([A-Za-z0-9]{22})/);
+      if (!m) return res.json({});
+      const token = await getValidToken();
+      const resp = await axios.get(`https://api.spotify.com/v1/tracks/${m[1]}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.json({ title: resp.data.name || '', artist: resp.data.artists?.[0]?.name || '' });
+    }
+
+    if (inputUrl.includes('music.apple.com')) {
+      const m = inputUrl.match(/music\.apple\.com\/(\w{2})\/(?:song|album)\/[^\/?]+\/(\d+)/);
+      const iMatch = inputUrl.match(/[?&]i=(\d+)/);
+      const songId = iMatch ? iMatch[1] : m?.[2];
+      if (!songId) return res.json({});
+      const storefront = m?.[1] || 'us';
+      const devToken = getAppleDeveloperToken();
+      const resp = await axios.get(`https://api.music.apple.com/v1/catalog/${storefront}/songs/${songId}`, {
+        headers: { Authorization: `Bearer ${devToken}` },
+      });
+      const attrs = resp.data.data?.[0]?.attributes;
+      return res.json({ title: attrs?.name || '', artist: attrs?.artistName || '' });
+    }
+
+    if (inputUrl.includes('music.youtube.com') || inputUrl.includes('youtube.com') || inputUrl.includes('youtu.be')) {
+      const m = inputUrl.match(/[?&]v=([A-Za-z0-9_-]{11})/) || inputUrl.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);
+      if (!m) return res.json({});
+      const resp = await axios.get('https://www.youtube.com/oembed', {
+        params: { url: `https://www.youtube.com/watch?v=${m[1]}`, format: 'json' },
+      });
+      let title = resp.data.title || '';
+      let artist = (resp.data.author_name || '').replace(/\s*-\s*Topic\s*$/i, '').trim();
+
+      // Many official music videos format the page title as "Artist - Title"
+      const dashMatch = title.match(/^(.+?)\s*-\s*(.+)$/);
+      if (dashMatch) {
+        if (!artist) artist = dashMatch[1].trim();
+        if (dashMatch[1].trim().toLowerCase() === artist.toLowerCase()) title = dashMatch[2].trim();
+      }
+      return res.json({ title, artist });
+    }
+
+    if (inputUrl.includes('melon.com')) {
+      const m = inputUrl.match(/[?&]songId=(\d+)/);
+      if (!m) return res.json({});
+      const resp = await axios.get('https://www.melon.com/song/detail.htm', {
+        params: { songId: m[1] },
+        headers: MELON_HEADERS,
+      });
+      const $ = cheerio.load(resp.data);
+      const ogTitle = $('meta[property="og:title"]').attr('content') || '';
+      const [title, artist] = ogTitle.split(' - ').map(s => (s || '').trim());
+      return res.json({ title: title || '', artist: artist || '' });
+    }
+
+    if (inputUrl.includes('music-flo.com') || inputUrl.includes('flomuz.io')) {
+      const resolvedUrl = await resolveFloUrl(inputUrl);
+      const m = resolvedUrl.match(/\/detail\/track\/(\d+)/);
+      if (!m) return res.json({});
+      const resp = await axios.get(`https://www.music-flo.com/api/meta/v1/track/${m[1]}`, { headers: FLO_HEADERS });
+      const track = resp.data?.data;
+      if (!track) return res.json({});
+      return res.json({
+        title: track.name || '',
+        artist: track.representationArtist?.name || track.artistList?.[0]?.name || '',
+      });
+    }
+
+    if (inputUrl.includes('genie.co.kr')) {
+      const resp = await axios.get(inputUrl, { headers: GENIE_HEADERS, maxRedirects: 5 });
+      const $ = cheerio.load(resp.data);
+      const ogTitle = $('meta[property="og:title"]').attr('content') || '';
+      const m = ogTitle.match(/^(.*)\s*-\s*genie$/i);
+      if (!m) return res.json({});
+      const [title, artist] = m[1].split(' / ').map(s => (s || '').trim());
+      return res.json({ title: title || '', artist: artist || '' });
+    }
+
+    return res.json({});
+  } catch (err) {
+    console.error('Meta song error:', err.response?.status, err.message);
+    return res.json({});
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;

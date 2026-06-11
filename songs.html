@@ -116,33 +116,51 @@
     padding: 40px 24px 80px;
   }
 
-  .page-title {
-    font-family: 'Black Han Sans', sans-serif;
-    font-size: clamp(28px, 5vw, 44px);
-    margin-bottom: 8px;
-    letter-spacing: -1px;
-    animation: fadeUp 0.6s ease both;
-  }
-
-  .page-sub {
-    color: var(--text2);
-    font-size: 15px;
-    margin-bottom: 36px;
-    animation: fadeUp 0.6s ease both;
-  }
-
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(24px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
-  .create-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 32px;
-    margin: 0 0 28px;
-    animation: fadeUp 0.6s 0.1s ease both;
+  .hero {
+    text-align: center;
+    padding: 80px 0 60px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .hero h1 {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: clamp(36px, 6vw, 64px);
+    line-height: 1.15;
+    margin-bottom: 20px;
+    letter-spacing: -1px;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero p {
+    color: var(--text2);
+    font-size: 17px;
+    line-height: 1.7;
+    max-width: 500px;
+    margin: 0 auto 40px;
+    font-weight: 300;
+  }
+
+  .hero-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-large {
+    padding: 14px 32px;
+    font-size: 16px;
   }
 
   .section-title {
@@ -350,6 +368,10 @@
     transform: translateY(0);
   }
 
+  .modal-form {
+    max-width: 640px;
+  }
+
   .modal-header {
     display: flex;
     align-items: center;
@@ -500,15 +522,34 @@
   <nav>
     <a class="btn btn-ghost" href="mucker-beta.html">홈으로</a>
     <a class="btn btn-ghost" href="charts.html">차트</a>
+    <button class="btn btn-ghost" onclick="openCreateSongModal()">+ 곡 공유</button>
   </nav>
 </header>
 
 <main>
-  <div class="page-title">곡 공유 🎵</div>
-  <div class="page-sub">좋아하는 곡 하나를 링크와 함께 공유해보세요.</div>
+  <section class="hero">
+    <h1>좋아하는 곡을<br><em>가볍게</em> 공유해요</h1>
+    <p>뮤커에 곡 하나를 올리고, 친구들과 공유하세요.<br>플랫폼은 상관없어요.</p>
+    <div class="hero-btns">
+      <button class="btn btn-primary btn-large" onclick="openCreateSongModal()">곡 공유</button>
+      <button class="btn btn-ghost btn-large" onclick="scrollToFeed()">곡 둘러보기</button>
+    </div>
+  </section>
 
-  <section class="create-section" id="song-create-section">
-    <div class="section-title"><div class="dot"></div>단일 곡 공유하기</div>
+  <section id="song-section">
+    <div class="section-title" style="margin-bottom:16px"><div class="dot"></div>공유된 곡</div>
+    <div class="song-list" id="song-list">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-overlay" id="create-song-modal-overlay" onclick="closeCreateSongModal(event)">
+  <div class="modal modal-form" id="create-song-modal">
+    <div class="modal-header">
+      <div class="modal-title">곡 공유</div>
+      <button class="close-btn" onclick="closeCreateSongModalDirect()">×</button>
+    </div>
 
     <div class="form-grid">
       <div class="input-group">
@@ -528,21 +569,14 @@
 
     <div class="input-group" style="margin-bottom:20px">
       <label>곡 링크 * (Spotify, Apple Music, YouTube, YouTube Music, Melon, Genie, FLO)</label>
-      <input type="text" id="song-url" placeholder="https://...">
+      <input type="text" id="song-url" placeholder="https://..." onchange="autofillSongInfo()">
     </div>
 
     <div style="display:flex; justify-content:flex-end;">
       <button class="btn btn-primary btn-large" onclick="submitSong()">곡 공유하기 🎵</button>
     </div>
-  </section>
-
-  <section id="song-section">
-    <div class="section-title" style="margin-bottom:16px"><div class="dot"></div>공유된 곡</div>
-    <div class="song-list" id="song-list">
-      <div class="loading"><div class="spinner"></div></div>
-    </div>
-  </section>
-</main>
+  </div>
+</div>
 
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
@@ -583,6 +617,8 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+
+  const BACKEND_BASE_URL = 'https://mucker-backend.onrender.com';
 
   function escapeHtml(str) {
     return (str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
@@ -637,6 +673,26 @@
     }
     return false;
   }
+
+  // Pre-fills the song title/artist from the pasted link, without overwriting
+  // anything the user already typed.
+  window.autofillSongInfo = async function() {
+    const url = document.getElementById('song-url').value.trim();
+    if (!url || !validateSongUrl(url)) return;
+
+    const titleInput = document.getElementById('song-title');
+    const artistInput = document.getElementById('song-artist');
+    if (titleInput.value.trim() && artistInput.value.trim()) return;
+
+    try {
+      const resp = await fetch(`${BACKEND_BASE_URL}/api/meta/song?url=${encodeURIComponent(url)}`);
+      const data = await resp.json();
+      if (data.title && !titleInput.value.trim()) titleInput.value = data.title;
+      if (data.artist && !artistInput.value.trim()) artistInput.value = data.artist;
+    } catch (error) {
+      console.error('Song meta fetch error:', error);
+    }
+  };
 
   window.showToast = function(msg) {
     const t = document.getElementById('toast');
@@ -749,6 +805,7 @@
       document.getElementById('song-author').value = '';
       document.getElementById('song-url').value = '';
 
+      closeCreateSongModalDirect();
       showToast('곡이 공유됐어요! 🎵');
       loadSongs();
     } catch (error) {
@@ -848,6 +905,22 @@
 
   window.closeModalDirect = function() {
     document.getElementById('modal-overlay').classList.remove('open');
+  };
+
+  window.openCreateSongModal = function() {
+    document.getElementById('create-song-modal-overlay').classList.add('open');
+  };
+
+  window.closeCreateSongModal = function(e) {
+    if (e.target === document.getElementById('create-song-modal-overlay')) closeCreateSongModalDirect();
+  };
+
+  window.closeCreateSongModalDirect = function() {
+    document.getElementById('create-song-modal-overlay').classList.remove('open');
+  };
+
+  window.scrollToFeed = function() {
+    document.getElementById('song-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   async function loadComments(songId) {

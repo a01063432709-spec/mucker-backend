@@ -192,15 +192,6 @@
     font-size: 16px;
   }
 
-  .create-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 32px;
-    margin: 0 0 48px;
-    animation: fadeUp 0.6s 0.1s ease both;
-  }
-
   .section-title {
     font-family: 'Black Han Sans', sans-serif;
     font-size: 20px;
@@ -612,6 +603,10 @@
     transform: translateY(0);
   }
 
+  .modal-form {
+    max-width: 640px;
+  }
+
   .modal-header {
     display: flex;
     align-items: center;
@@ -795,7 +790,7 @@
   <div class="logo">muc<span>K</span>er</div>
   <nav>
     <a class="btn btn-ghost" href="charts.html" style="text-decoration:none; display:inline-flex; align-items:center;">차트</a>
-    <button class="btn btn-ghost" onclick="scrollToCreate()">+ 플리 만들기</button>
+    <button class="btn btn-ghost" onclick="openCreateModal()">+ 플리 작성</button>
     <a class="btn btn-ghost" href="songs.html" style="text-decoration:none; display:inline-flex; align-items:center;">곡 공유 보기</a>
   </nav>
 </header>
@@ -811,14 +806,32 @@
     <h1>내 플레이리스트를<br><em>어디서든 같이</em> 들어요</h1>
     <p>뮤커에 플리를 올리고, 친구들과 공유하세요.<br>플랫폼은 상관없어요.</p>
     <div class="hero-btns">
-      <button class="btn btn-primary btn-large" onclick="scrollToCreate()">플리 만들기</button>
+      <button class="btn btn-primary btn-large" onclick="openCreateModal()">플리 작성</button>
       <button class="btn btn-ghost btn-large" onclick="scrollToFeed()">플리 둘러보기</button>
     </div>
   </section>
 
-  <section class="create-section" id="create-section">
-    <div class="section-title"><div class="dot"></div>내 플레이리스트 공유하기</div>
-    
+  <section id="feed-section">
+    <div class="section-title" style="margin-bottom:16px"><div class="dot"></div>공유된 플리</div>
+    <div class="input-group" style="margin-bottom:16px">
+      <input type="text" id="search-input" placeholder="플레이리스트, 닉네임, 장르로 검색해보세요" oninput="onSearchInput(this.value)">
+    </div>
+    <div class="genre-tags" id="filter-tags" style="margin-bottom:24px"></div>
+    <div class="sort-tags" id="sort-tags"></div>
+    <div class="playlist-grid" id="playlist-grid">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="modal-overlay" id="create-modal-overlay" onclick="closeCreateModal(event)">
+  <div class="modal modal-form" id="create-modal">
+    <div class="modal-header">
+      <div class="modal-title">플리 작성</div>
+      <button class="close-btn" onclick="closeCreateModalDirect()">×</button>
+    </div>
+
     <div class="form-grid">
       <div class="input-group">
         <label>플레이리스트 이름 *</label>
@@ -842,7 +855,7 @@
 
     <div class="input-group" style="margin-bottom:20px">
       <label>Spotify 또는 Apple Music 플레이리스트 링크 (선택)</label>
-      <input type="text" id="music-url">
+      <input type="text" id="music-url" onchange="autofillPlaylistInfo()">
     </div>
 
     <div class="input-group" style="margin-bottom:20px">
@@ -868,21 +881,8 @@
     <div style="margin-top:24px; display:flex; justify-content:flex-end;">
       <button class="btn btn-primary btn-large" onclick="submitPlaylist()">플리 공유하기 🎶</button>
     </div>
-  </section>
-
-  <section id="feed-section">
-    <div class="section-title" style="margin-bottom:16px"><div class="dot"></div>공유된 플리</div>
-    <div class="input-group" style="margin-bottom:16px">
-      <input type="text" id="search-input" placeholder="플레이리스트, 닉네임, 장르로 검색해보세요" oninput="onSearchInput(this.value)">
-    </div>
-    <div class="genre-tags" id="filter-tags" style="margin-bottom:24px"></div>
-    <div class="sort-tags" id="sort-tags"></div>
-    <div class="playlist-grid" id="playlist-grid">
-      <div class="loading"><div class="spinner"></div></div>
-    </div>
-  </section>
-
-</main>
+  </div>
+</div>
 
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
@@ -1122,6 +1122,26 @@
     return false;
   }
 
+  // Pre-fills the playlist name from the pasted music link, without overwriting
+  // anything the user already typed.
+  window.autofillPlaylistInfo = async function() {
+    const musicUrl = document.getElementById('music-url').value.trim();
+    if (!musicUrl || !validatePlaylistUrl(musicUrl)) return;
+
+    const nameInput = document.getElementById('pl-name');
+    if (nameInput.value.trim()) return;
+
+    try {
+      const resp = await fetch(`${BACKEND_BASE_URL}/api/meta/playlist?url=${encodeURIComponent(musicUrl)}`);
+      const data = await resp.json();
+      if (data.name && !nameInput.value.trim()) {
+        nameInput.value = data.name;
+      }
+    } catch (error) {
+      console.error('Playlist meta fetch error:', error);
+    }
+  };
+
   window.toggleMore = function(event, id) {
     event.stopPropagation();
     document.querySelectorAll('.more-links').forEach(el => {
@@ -1355,6 +1375,7 @@
       `;
       trackCount = 1;
 
+      closeCreateModalDirect();
       showToast('플리가 공유됐어요! 🎉');
       loadPlaylists();
       setTimeout(() => scrollToFeed(), 500);
@@ -1593,8 +1614,16 @@
     setTimeout(() => t.classList.remove('show'), 2500);
   };
 
-  window.scrollToCreate = function() {
-    document.getElementById('create-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window.openCreateModal = function() {
+    document.getElementById('create-modal-overlay').classList.add('open');
+  };
+
+  window.closeCreateModal = function(e) {
+    if (e.target === document.getElementById('create-modal-overlay')) closeCreateModalDirect();
+  };
+
+  window.closeCreateModalDirect = function() {
+    document.getElementById('create-modal-overlay').classList.remove('open');
   };
 
   window.scrollToFeed = function() {
