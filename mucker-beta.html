@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mucKer — 플레이리스트 공유</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --accent: #7c4dff;
+    --accent2: #ff4d8d;
+    --accent3: #4dffb4;
+    --text: #f0f0f8;
+    --text2: #888899;
+    --border: rgba(255,255,255,0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: 
+      radial-gradient(ellipse at 20% 20%, rgba(124,77,255,0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(255,77,141,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(77,255,180,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -1px;
+  }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+
+  .notice-banner {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 24px;
+    background: linear-gradient(135deg, rgba(124,77,255,0.18), rgba(255,77,141,0.14));
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    text-align: center;
+    position: relative;
+    z-index: 50;
+  }
+
+  .notice-banner.show { display: flex; }
+
+  .notice-banner .notice-icon { flex-shrink: 0; }
+
+  .notice-banner .notice-text {
+    flex: 1;
+    max-width: 900px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .notice-banner .notice-close {
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 16px;
+    flex-shrink: 0;
+    padding: 0 4px;
+    transition: color 0.2s;
+  }
+
+  .notice-banner .notice-close:hover { color: var(--text); }
+
+  .btn {
+    padding: 8px 20px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    color: var(--text);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(124,77,255,0.4);
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .hero {
+    text-align: center;
+    padding: 80px 0 60px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero h1 {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: clamp(36px, 6vw, 64px);
+    line-height: 1.15;
+    margin-bottom: 20px;
+    letter-spacing: -1px;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero p {
+    color: var(--text2);
+    font-size: 17px;
+    line-height: 1.7;
+    max-width: 500px;
+    margin: 0 auto 40px;
+    font-weight: 300;
+  }
+
+  .hero-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-large {
+    padding: 14px 32px;
+    font-size: 16px;
+  }
+
+  .create-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    margin: 0 0 48px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .section-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .input-group label {
+    font-size: 13px;
+    color: var(--text2);
+    font-weight: 500;
+  }
+
+  .input-group input, .input-group textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-group input:focus, .input-group textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .input-group textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+
+  .track-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+  }
+
+  .track-item {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  .track-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(124,77,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--accent);
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+
+  .track-inputs {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+
+  .track-inputs input {
+    flex: 1;
+    min-width: 120px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: 4px 8px;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    outline: none;
+  }
+
+  .track-inputs input:focus {
+    border-bottom-color: var(--accent);
+  }
+
+  .track-inputs input::placeholder {
+    color: var(--text2);
+  }
+
+  .remove-btn {
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+    border-radius: 6px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .remove-btn:hover { color: var(--accent2); }
+
+  .add-track-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px dashed rgba(124,77,255,0.3);
+    border-radius: 12px;
+    padding: 12px 20px;
+    color: var(--accent);
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    width: 100%;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .add-track-btn:hover {
+    background: rgba(124,77,255,0.08);
+    border-color: var(--accent);
+  }
+
+  .genre-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .genre-tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 7px 14px;
+    color: var(--text2);
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .genre-tag:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .genre-tag.selected {
+    background: rgba(124,77,255,0.18);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .genre-tag.filter-tag.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .sort-tags {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .sort-tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 7px 14px;
+    color: var(--text2);
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .sort-tag:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .sort-tag.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .card-genre-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .card-genre-tag {
+    background: rgba(124,77,255,0.12);
+    border: 1px solid rgba(124,77,255,0.25);
+    border-radius: 999px;
+    padding: 3px 10px;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .playlist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .playlist-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .playlist-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(124,77,255,0.3);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  }
+
+  .card-cover {
+    height: 140px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+  }
+
+  .card-cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 50%, rgba(19,19,26,0.9));
+  }
+
+  .card-body {
+    padding: 16px;
+  }
+
+  .card-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 17px;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+
+  .card-desc {
+    color: var(--text2);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-author {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  .avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+  }
+
+  .like-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    padding: 0;
+    transition: color 0.2s, transform 0.15s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .like-btn:hover { color: var(--accent2); }
+
+  .like-btn.liked { color: var(--accent2); cursor: default; }
+
+  .like-btn .like-icon { font-size: 14px; }
+
+  .like-btn.just-liked .like-icon { animation: likePop 0.3s ease; }
+
+  .link-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    padding: 0;
+    transition: color 0.2s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .link-btn:hover { color: var(--accent); }
+
+  @keyframes likePop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 32px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    transform: translateY(20px);
+    transition: transform 0.3s;
+  }
+
+  .modal-overlay.open .modal {
+    transform: translateY(0);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .modal-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 22px;
+  }
+
+  .close-btn {
+    background: var(--surface2);
+    border: none;
+    color: var(--text2);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+  }
+
+  .close-btn:hover { color: var(--text); }
+
+  .modal-tracks {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .modal-track {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    background: var(--surface2);
+    border-radius: 12px;
+  }
+
+  .modal-track-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(124,77,255,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .modal-track-info { flex: 1; }
+  .modal-track-title { font-weight: 500; font-size: 14px; }
+  .modal-track-artist { color: var(--text2); font-size: 13px; }
+
+  .comments-section {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+
+  .comments-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  .comment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .comment-form-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .comment-form input, .comment-form textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .comment-form input:focus, .comment-form textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .comment-form input { width: 120px; flex-shrink: 0; }
+  .comment-form textarea { flex: 1; resize: vertical; min-height: 40px; }
+
+  .comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .comment-item {
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+
+  .comment-author {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .comment-text {
+    font-size: 13px;
+    color: var(--text2);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .comment-empty {
+    font-size: 13px;
+    color: var(--text2);
+    text-align: center;
+    padding: 12px 0;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 12px 24px;
+    font-size: 14px;
+    z-index: 300;
+    transition: transform 0.3s;
+    white-space: nowrap;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text2);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(124,77,255,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">muc<span>K</span>er</div>
+  <nav>
+    <a class="btn btn-ghost" href="charts.html" style="text-decoration:none; display:inline-flex; align-items:center;">차트</a>
+    <button class="btn btn-ghost" onclick="scrollToCreate()">+ 플리 만들기</button>
+    <a class="btn btn-ghost" href="songs.html" style="text-decoration:none; display:inline-flex; align-items:center;">곡 공유 보기</a>
+  </nav>
+</header>
+
+<div class="notice-banner" id="notice-banner">
+  <span class="notice-icon">📢</span>
+  <span class="notice-text" id="notice-banner-text"></span>
+  <button class="notice-close" onclick="dismissNotice()">×</button>
+</div>
+
+<main>
+  <section class="hero">
+    <h1>내 플레이리스트를<br><em>어디서든 같이</em> 들어요</h1>
+    <p>뮤커에 플리를 올리고, 친구들과 공유하세요.<br>플랫폼은 상관없어요.</p>
+    <div class="hero-btns">
+      <button class="btn btn-primary btn-large" onclick="scrollToCreate()">플리 만들기</button>
+      <button class="btn btn-ghost btn-large" onclick="scrollToFeed()">플리 둘러보기</button>
+    </div>
+  </section>
+
+  <section class="create-section" id="create-section">
+    <div class="section-title"><div class="dot"></div>내 플레이리스트 공유하기</div>
+    
+    <div class="form-grid">
+      <div class="input-group">
+        <label>플레이리스트 이름 *</label>
+        <input type="text" id="pl-name" placeholder="ex) 새벽 감성 모음" maxlength="40">
+      </div>
+      <div class="input-group">
+        <label>무드 이모지</label>
+        <input type="text" id="pl-emoji" placeholder="ex) 🌙" maxlength="4">
+      </div>
+    </div>
+
+    <div class="input-group" style="margin-bottom:16px">
+      <label>소개 (선택)</label>
+      <textarea id="pl-desc" placeholder="이 플리는 어떤 분위기인가요?"></textarea>
+    </div>
+
+    <div class="input-group" style="margin-bottom:20px">
+      <label>닉네임 *</label>
+      <input type="text" id="pl-author" placeholder="ex) 음악덕후" maxlength="20">
+    </div>
+
+    <div class="input-group" style="margin-bottom:20px">
+      <label>Spotify 또는 Apple Music 플레이리스트 링크 (선택)</label>
+      <input type="text" id="music-url">
+    </div>
+
+    <div class="input-group" style="margin-bottom:20px">
+      <label>장르 태그 (선택, 다중 선택 가능)</label>
+      <div class="genre-tags" id="genre-tags"></div>
+    </div>
+
+    <div class="section-title" style="font-size:16px; margin-bottom:12px"><div class="dot"></div>곡 목록</div>
+
+    <div class="track-list" id="track-list">
+      <div class="track-item">
+        <div class="track-num">1</div>
+        <div class="track-inputs">
+          <input type="text" placeholder="곡 제목" class="track-title">
+          <input type="text" placeholder="아티스트" class="track-artist">
+        </div>
+        <button class="remove-btn" onclick="removeTrack(this)">×</button>
+      </div>
+    </div>
+
+    <button class="add-track-btn" onclick="addTrack()">+ 곡 추가</button>
+
+    <div style="margin-top:24px; display:flex; justify-content:flex-end;">
+      <button class="btn btn-primary btn-large" onclick="submitPlaylist()">플리 공유하기 🎶</button>
+    </div>
+  </section>
+
+  <section id="feed-section">
+    <div class="section-title" style="margin-bottom:16px"><div class="dot"></div>공유된 플리</div>
+    <div class="input-group" style="margin-bottom:16px">
+      <input type="text" id="search-input" placeholder="플레이리스트, 닉네임, 장르로 검색해보세요" oninput="onSearchInput(this.value)">
+    </div>
+    <div class="genre-tags" id="filter-tags" style="margin-bottom:24px"></div>
+    <div class="sort-tags" id="sort-tags"></div>
+    <div class="playlist-grid" id="playlist-grid">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="close-btn" onclick="closeModalDirect()">×</button>
+    </div>
+    <button class="link-btn" style="margin-bottom:16px" onclick="copyPlaylistLink(currentPlaylistId)">🔗 링크 복사</button>
+    <div class="modal-tracks" id="modal-tracks"></div>
+
+    <div class="comments-section">
+      <div class="comments-title">댓글</div>
+      <div class="comment-form">
+        <div class="comment-form-row">
+          <input type="text" id="comment-author" placeholder="닉네임" maxlength="20">
+          <textarea id="comment-text" placeholder="댓글을 남겨보세요" maxlength="300"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="submitComment()">댓글 등록</button>
+      </div>
+      <div class="comment-list" id="comment-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+  const BACKEND_BASE_URL = 'https://mucker-backend.onrender.com';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBdW9OvqKQVQ5ExZB53i0P1piRHAGKfKuA",
+    authDomain: "mucker-ca90a.firebaseapp.com",
+    projectId: "mucker-ca90a",
+    storageBucket: "mucker-ca90a.firebasestorage.app",
+    messagingSenderId: "221353818492",
+    appId: "1:221353818492:web:fb0396da5fd29ea7864cf9",
+    measurementId: "G-GKY7N9RTPJ"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  let trackCount = 1;
+  let currentPlaylistId = null;
+  let allPlaylists = [];
+  let activeFilterTag = null;
+  let searchQuery = '';
+  let sortOption = 'newest';
+
+  const SORT_OPTIONS = [
+    { key: 'newest', label: '최신순' },
+    { key: 'views', label: '조회순' },
+    { key: 'likes', label: '좋아요순' },
+  ];
+
+  document.getElementById('sort-tags').innerHTML = SORT_OPTIONS.map(o =>
+    `<div class="sort-tag ${o.key === sortOption ? 'selected' : ''}" onclick="setSortOption(${esc(JSON.stringify(o.key))})">${o.label}</div>`
+  ).join('');
+
+  window.setSortOption = function(key) {
+    sortOption = key;
+    document.querySelectorAll('#sort-tags .sort-tag').forEach((el, i) => {
+      el.classList.toggle('selected', SORT_OPTIONS[i].key === key);
+    });
+    renderPlaylists();
+  };
+
+  function sortPlaylists(items) {
+    const sorted = [...items];
+    if (sortOption === 'views') {
+      sorted.sort((a, b) => (b.data.views || 0) - (a.data.views || 0));
+    } else if (sortOption === 'likes') {
+      sorted.sort((a, b) => (b.data.likes || 0) - (a.data.likes || 0));
+    } else {
+      sorted.sort((a, b) => (b.data.createdAt?.toMillis?.() || 0) - (a.data.createdAt?.toMillis?.() || 0));
+    }
+    return sorted;
+  }
+
+  window.onSearchInput = function(value) {
+    searchQuery = value.trim().toLowerCase();
+    renderPlaylists();
+  };
+
+  const LIKED_KEY = 'mucker_liked_playlists';
+
+  function getLikedIds() {
+    try {
+      return JSON.parse(localStorage.getItem(LIKED_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function isLiked(id) {
+    return getLikedIds().includes(id);
+  }
+
+  window.toggleLike = async function(btn, id) {
+    if (isLiked(id)) {
+      showToast('이미 좋아요를 눌렀어요!');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'playlists', id), { likes: increment(1) });
+
+      const liked = getLikedIds();
+      liked.push(id);
+      localStorage.setItem(LIKED_KEY, JSON.stringify(liked));
+
+      btn.classList.add('liked', 'just-liked');
+      btn.querySelector('.like-icon').textContent = '♥';
+      const countEl = btn.querySelector('.like-count');
+      countEl.textContent = (parseInt(countEl.textContent, 10) || 0) + 1;
+
+      const pl = allPlaylists.find(p => p.id === id);
+      if (pl) pl.data.likes = (pl.data.likes || 0) + 1;
+    } catch (error) {
+      console.error('Error liking playlist:', error);
+      showToast('좋아요 처리에 실패했어요.');
+    }
+  };
+
+  const GENRES = ['K-pop', 'Pop', 'Hip-hop', 'R&B', 'Rock', 'Jazz', 'Classical', 'Electronic', 'Indie', 'Lo-fi', 'Metal', 'Country', 'Latin', 'Reggae', 'Blues', 'Soul', 'Folk', 'Dance', 'OST'];
+
+  document.getElementById('genre-tags').innerHTML = GENRES.map(g =>
+    `<div class="genre-tag" onclick="toggleGenreTag(this)">${g}</div>`
+  ).join('');
+
+  document.getElementById('filter-tags').innerHTML = GENRES.map(g =>
+    `<div class="genre-tag filter-tag" onclick="toggleFilterTag(this, ${esc(JSON.stringify(g))})">${g}</div>`
+  ).join('');
+
+  window.toggleGenreTag = function(el) {
+    el.classList.toggle('selected');
+  };
+
+  window.toggleFilterTag = function(el, genre) {
+    const wasSelected = el.classList.contains('selected');
+    document.querySelectorAll('#filter-tags .filter-tag').forEach(t => t.classList.remove('selected'));
+    if (wasSelected) {
+      activeFilterTag = null;
+    } else {
+      el.classList.add('selected');
+      activeFilterTag = genre;
+    }
+    renderPlaylists();
+  };
+
+  window.addTrack = function() {
+    trackCount++;
+    const list = document.getElementById('track-list');
+    const div = document.createElement('div');
+    div.className = 'track-item';
+    div.innerHTML = `
+      <div class="track-num">${trackCount}</div>
+      <div class="track-inputs">
+        <input type="text" placeholder="곡 제목" class="track-title">
+        <input type="text" placeholder="아티스트" class="track-artist">
+      </div>
+      <button class="remove-btn" onclick="removeTrack(this)">×</button>
+    `;
+    list.appendChild(div);
+    updateTrackNums();
+  };
+
+  window.removeTrack = function(btn) {
+    const items = document.querySelectorAll('.track-item');
+    if (items.length <= 1) { showToast('최소 1곡은 있어야 해요 🎵'); return; }
+    btn.closest('.track-item').remove();
+    updateTrackNums();
+  };
+
+  function getSpotifyEmbedUrl(url) {
+    const match = (url || '').match(/playlist\/([A-Za-z0-9]+)/);
+    return match ? `https://open.spotify.com/embed/playlist/${match[1]}?utm_source=generator` : null;
+  }
+
+  function getAppleMusicEmbedUrl(url) {
+    if (!url || !url.includes('music.apple.com')) return null;
+    return url.replace('music.apple.com', 'embed.music.apple.com');
+  }
+
+  function getYoutubeEmbedUrl(url) {
+    const match = (url || '').match(/[?&]list=([A-Za-z0-9_-]+)/);
+    return match ? `https://www.youtube.com/embed/videoseries?list=${match[1]}` : null;
+  }
+
+  // Escapes a JSON string for safe embedding inside a double-quoted HTML attribute
+  function esc(jsonStr) {
+    return jsonStr.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+  }
+
+  // Removes Zalgo-style combining diacritical marks that can corrupt the UI layout
+  function stripCombiningMarks(str) {
+    return (str || '').replace(/[\p{Mn}\p{Me}\p{Mc}]/gu, '');
+  }
+
+  function hasUrlPath(url) {
+    try {
+      return new URL(url).pathname.length > 1;
+    } catch {
+      return false;
+    }
+  }
+
+  // Format/ID-based validation for a playlist link on each platform
+  function validatePlaylistUrl(url) {
+    if (url.includes('open.spotify.com')) {
+      return /\/playlist\/[A-Za-z0-9]{22}(\?|$|\/)/.test(url);
+    }
+    if (url.includes('music.apple.com')) {
+      return /\/playlist\/[^\/?]+\/pl\.[\w.-]+/.test(url);
+    }
+    if (url.includes('music.youtube.com') || url.includes('youtube.com/playlist')) {
+      return /[?&]list=[A-Za-z0-9_-]+/.test(url);
+    }
+    if (url.includes('kko.to')) {
+      return hasUrlPath(url);
+    }
+    if (url.includes('melon.com')) {
+      return /[?&]plylstSeq=\d+/.test(url);
+    }
+    if (url.includes('flomuz.io')) {
+      return hasUrlPath(url);
+    }
+    if (url.includes('music-flo.com')) {
+      return /\/detail\/(playlist|openplaylist|pri-playlist|pri_playlist)\/\d+/.test(url);
+    }
+    if (url.includes('genie.co.kr')) {
+      return /pl[ym]Seq=\d+/.test(url) || hasUrlPath(url);
+    }
+    return false;
+  }
+
+  window.toggleMore = function(event, id) {
+    event.stopPropagation();
+    document.querySelectorAll('.more-links').forEach(el => {
+      if (el.id !== id) el.style.display = 'none';
+    });
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+  };
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.more-links').forEach(el => el.style.display = 'none');
+  });
+
+  function updateTrackNums() {
+    document.querySelectorAll('.track-item').forEach((item, i) => {
+      item.querySelector('.track-num').textContent = i + 1;
+    });
+    trackCount = document.querySelectorAll('.track-item').length;
+  }
+
+  window.submitPlaylist = async function() {
+    const name = stripCombiningMarks(document.getElementById('pl-name').value.trim());
+    const author = stripCombiningMarks(document.getElementById('pl-author').value.trim());
+    const emoji = document.getElementById('pl-emoji').value.trim() || '🎵';
+    const desc = stripCombiningMarks(document.getElementById('pl-desc').value.trim());
+
+    if (!name) { showToast('플레이리스트 이름을 입력해주세요!'); return; }
+    if (!author) { showToast('닉네임을 입력해주세요!'); return; }
+
+    const tracks = [];
+    document.querySelectorAll('.track-item').forEach(item => {
+      const title = item.querySelector('.track-title').value.trim();
+      const artist = item.querySelector('.track-artist').value.trim();
+      if (title) tracks.push({ title, artist: artist || '아티스트 미상' });
+    });
+
+    const musicUrl = document.getElementById('music-url').value.trim();
+    let spotifyUrl = '', appleUrl = '', youtubeUrl = '', melonUrl = '', floUrl = '', genieUrl = '';
+    if (musicUrl.includes('open.spotify.com')) {
+      if (!validatePlaylistUrl(musicUrl)) { showToast('올바른 Spotify 플레이리스트 링크가 아니에요!'); return; }
+      const spotifyId = musicUrl.match(/\/playlist\/([A-Za-z0-9]{22})/)[1];
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/api/spotify/validate?id=${spotifyId}`);
+        const data = await resp.json();
+        if (data.exists === false) {
+          showToast('존재하지 않는 플레이리스트입니다');
+          return;
+        }
+      } catch (error) {
+        console.error('Spotify playlist existence check error:', error);
+      }
+      spotifyUrl = musicUrl;
+    } else if (musicUrl.includes('music.apple.com')) {
+      if (!validatePlaylistUrl(musicUrl)) { showToast('올바른 Apple Music 플레이리스트 링크가 아니에요!'); return; }
+      const appleMatch = musicUrl.match(/music\.apple\.com\/(\w{2})\/playlist\/[^\/?]+\/(pl\.[\w.-]+)/);
+      if (appleMatch) {
+        try {
+          const resp = await fetch(`${BACKEND_BASE_URL}/api/apple/validate?id=${encodeURIComponent(appleMatch[2])}&storefront=${appleMatch[1]}`);
+          const data = await resp.json();
+          if (data.exists === false) {
+            showToast('존재하지 않는 플레이리스트입니다');
+            return;
+          }
+        } catch (error) {
+          console.error('Apple playlist existence check error:', error);
+        }
+      }
+      appleUrl = musicUrl;
+    } else if (musicUrl.includes('music.youtube.com') || musicUrl.includes('youtube.com/playlist')) {
+      if (!validatePlaylistUrl(musicUrl)) { showToast('올바른 YouTube 플레이리스트 링크가 아니에요!'); return; }
+      const ytMatch = musicUrl.match(/[?&]list=([A-Za-z0-9_-]+)/);
+      if (ytMatch) {
+        try {
+          const resp = await fetch(`${BACKEND_BASE_URL}/api/youtube/validate?id=${encodeURIComponent(ytMatch[1])}`);
+          const data = await resp.json();
+          if (data.exists === false) {
+            showToast('존재하지 않는 플레이리스트입니다');
+            return;
+          }
+        } catch (error) {
+          console.error('YouTube playlist existence check error:', error);
+        }
+      }
+      youtubeUrl = musicUrl;
+    } else if (musicUrl.includes('melon.com') || musicUrl.includes('kko.to')) {
+      if (!validatePlaylistUrl(musicUrl)) { showToast('올바른 Melon 플레이리스트 링크가 아니에요!'); return; }
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/api/melon/validate?url=${encodeURIComponent(musicUrl)}`);
+        const data = await resp.json();
+        if (data.exists === false) {
+          showToast('존재하지 않는 플레이리스트입니다');
+          return;
+        }
+      } catch (error) {
+        console.error('Melon playlist existence check error:', error);
+      }
+      melonUrl = musicUrl;
+    } else if (musicUrl.includes('music-flo.com') || musicUrl.includes('flomuz.io')) {
+      if (!validatePlaylistUrl(musicUrl)) { showToast('올바른 FLO 플레이리스트 링크가 아니에요!'); return; }
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/api/flo/validate?url=${encodeURIComponent(musicUrl)}`);
+        const data = await resp.json();
+        if (data.exists === false) {
+          showToast('존재하지 않는 플레이리스트입니다');
+          return;
+        }
+      } catch (error) {
+        console.error('FLO playlist existence check error:', error);
+      }
+      floUrl = musicUrl;
+    } else if (musicUrl.includes('genie.co.kr')) {
+      if (!validatePlaylistUrl(musicUrl)) { showToast('올바른 Genie 플레이리스트 링크가 아니에요!'); return; }
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/api/genie/validate?url=${encodeURIComponent(musicUrl)}`);
+        const data = await resp.json();
+        if (data.exists === false) {
+          showToast('존재하지 않는 플레이리스트입니다');
+          return;
+        }
+      } catch (error) {
+        console.error('Genie playlist existence check error:', error);
+      }
+      genieUrl = musicUrl;
+    } else if (musicUrl) {
+      showToast('Spotify, Apple Music, YouTube Music, FLO, Melon, Genie 플레이리스트 링크만 지원해요!');
+      return;
+    }
+
+    if (melonUrl && tracks.length === 0) {
+      showToast('멜론 플레이리스트를 불러오는 중...');
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/api/melon/playlist?url=${encodeURIComponent(melonUrl)}`);
+        const data = await resp.json();
+        if (resp.ok && data.tracks?.length) {
+          tracks.push(...data.tracks);
+        } else {
+          showToast(data.error || '멜론 플레이리스트를 불러오지 못했어요. 곡을 직접 입력해주세요.');
+        }
+      } catch (error) {
+        console.error('Melon scrape error:', error);
+        showToast('멜론 플레이리스트를 불러오지 못했어요. 곡을 직접 입력해주세요.');
+      }
+    }
+
+    if (floUrl && tracks.length === 0) {
+      showToast('FLO 플레이리스트를 불러오는 중...');
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/api/flo/playlist?url=${encodeURIComponent(floUrl)}`);
+        const data = await resp.json();
+        if (resp.ok && data.tracks?.length) {
+          tracks.push(...data.tracks);
+        } else {
+          showToast(data.error || 'FLO 플레이리스트를 불러오지 못했어요. 곡을 직접 입력해주세요.');
+        }
+      } catch (error) {
+        console.error('FLO scrape error:', error);
+        showToast('FLO 플레이리스트를 불러오지 못했어요. 곡을 직접 입력해주세요.');
+      }
+    }
+
+    if (genieUrl && tracks.length === 0) {
+      showToast('지니 플레이리스트를 불러오는 중...');
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/api/genie/playlist?url=${encodeURIComponent(genieUrl)}`);
+        const data = await resp.json();
+        if (resp.ok && data.tracks?.length) {
+          tracks.push(...data.tracks);
+        } else {
+          showToast(data.error || '지니 플레이리스트를 불러오지 못했어요. 곡을 직접 입력해주세요.');
+        }
+      } catch (error) {
+        console.error('Genie scrape error:', error);
+        showToast('지니 플레이리스트를 불러오지 못했어요. 곡을 직접 입력해주세요.');
+      }
+    }
+
+    if (youtubeUrl && tracks.length === 0) {
+      showToast('YouTube 플레이리스트를 불러오는 중...');
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/api/youtube/playlist?url=${encodeURIComponent(youtubeUrl)}`);
+        const data = await resp.json();
+        if (resp.ok && data.tracks?.length) {
+          tracks.push(...data.tracks);
+        } else {
+          showToast(data.error || 'YouTube 플레이리스트를 불러오지 못했어요. 곡을 직접 입력해주세요.');
+        }
+      } catch (error) {
+        console.error('YouTube scrape error:', error);
+        showToast('YouTube 플레이리스트를 불러오지 못했어요. 곡을 직접 입력해주세요.');
+      }
+    }
+
+    if (tracks.length === 0 && !spotifyUrl && !appleUrl && !youtubeUrl && !melonUrl && !floUrl && !genieUrl) { showToast('곡을 추가하거나 음악 플레이리스트 링크를 입력해주세요!'); return; }
+
+    const genres = Array.from(document.querySelectorAll('#genre-tags .genre-tag.selected')).map(el => el.textContent);
+
+    try {
+      await addDoc(collection(db, 'playlists'), {
+        name,
+        emoji,
+        desc,
+        author,
+        tracks,
+        spotifyUrl,
+        appleUrl,
+        youtubeUrl,
+        melonUrl,
+        floUrl,
+        genieUrl,
+        genres,
+        likes: 0,
+        views: 0,
+        createdAt: serverTimestamp()
+      });
+
+      document.getElementById('pl-name').value = '';
+      document.getElementById('pl-emoji').value = '';
+      document.getElementById('pl-desc').value = '';
+      document.getElementById('pl-author').value = '';
+      document.getElementById('music-url').value = '';
+      document.querySelectorAll('#genre-tags .genre-tag.selected').forEach(el => el.classList.remove('selected'));
+      document.getElementById('track-list').innerHTML = `
+        <div class="track-item">
+          <div class="track-num">1</div>
+          <div class="track-inputs">
+            <input type="text" placeholder="곡 제목" class="track-title">
+            <input type="text" placeholder="아티스트" class="track-artist">
+          </div>
+          <button class="remove-btn" onclick="removeTrack(this)">×</button>
+        </div>
+      `;
+      trackCount = 1;
+
+      showToast('플리가 공유됐어요! 🎉');
+      loadPlaylists();
+      setTimeout(() => scrollToFeed(), 500);
+    } catch (error) {
+      showToast('오류가 발생했어요. 다시 시도해주세요.');
+      console.error(error);
+    }
+  };
+
+  async function loadPlaylists() {
+    try {
+      const q = query(collection(db, 'playlists'), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      allPlaylists = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+      renderPlaylists();
+
+      const sharedId = new URLSearchParams(location.search).get('id');
+      if (sharedId) {
+        const shared = allPlaylists.find(p => p.id === sharedId);
+        if (shared) {
+          const pl = shared.data;
+          openModal(shared.id, pl.name, pl.emoji || '', pl.tracks, pl.spotifyUrl || '', pl.appleUrl || '', pl.youtubeUrl || '');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading playlists:', error);
+      document.getElementById('playlist-grid').innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:40px; color:red">데이터를 불러오는데 실패했어요.</div>`;
+    }
+  }
+
+  function renderPlaylists() {
+    const grid = document.getElementById('playlist-grid');
+
+    let items = activeFilterTag
+      ? allPlaylists.filter(({ data }) => (data.genres || []).includes(activeFilterTag))
+      : allPlaylists;
+
+    if (searchQuery) {
+      items = items.filter(({ data }) => {
+        const inName = (data.name || '').toLowerCase().includes(searchQuery);
+        const inAuthor = (data.author || '').toLowerCase().includes(searchQuery);
+        const inGenres = (data.genres || []).some(g => g.toLowerCase().includes(searchQuery));
+        return inName || inAuthor || inGenres;
+      });
+    }
+
+    if (items.length === 0) {
+      const message = searchQuery
+        ? '검색 결과가 없어요.'
+        : (activeFilterTag ? '해당 장르의 플리가 없어요.' : '아직 공유된 플리가 없어요. 첫 번째 플리를 올려보세요! 🎵');
+      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text2)">${message}</div>`;
+      return;
+    }
+
+    items = sortPlaylists(items);
+
+    const COVER_GRADIENTS = [
+      "linear-gradient(135deg, #7c4dff, #ff4d8d)",
+      "linear-gradient(135deg, #ff4d8d, #ffb74d)",
+      "linear-gradient(135deg, #4dffb4, #4d8dff)",
+      "linear-gradient(135deg, #ff6b6b, #ffd93d)",
+      "linear-gradient(135deg, #a18cd1, #fbc2eb)",
+      "linear-gradient(135deg, #0f2027, #2c5364)",
+    ];
+
+    const COLORS = ['#7c4dff','#ff4d8d','#4dffb4','#ffb74d','#4d8dff'];
+
+    grid.innerHTML = items.map(({ id, data: pl }, idx) => {
+      const gradient = COVER_GRADIENTS[idx % COVER_GRADIENTS.length];
+      const authorColor = COLORS[idx % COLORS.length];
+
+      const moreLinks = [
+        pl.youtubeUrl ? `<a href="${pl.youtubeUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:block; font-size:12px; color:#ff0000; font-weight:500; text-decoration:none; white-space:nowrap">YouTube Music ↗</a>` : '',
+        pl.melonUrl ? `<a href="${pl.melonUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:block; font-size:12px; color:#00cd3c; font-weight:500; text-decoration:none; white-space:nowrap">Melon ↗</a>` : '',
+        pl.floUrl ? `<a href="${pl.floUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:block; font-size:12px; color:#5e35e2; font-weight:500; text-decoration:none; white-space:nowrap">FLO ↗</a>` : '',
+        pl.genieUrl ? `<a href="${pl.genieUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:block; font-size:12px; color:#00b6f1; font-weight:500; text-decoration:none; white-space:nowrap">Genie ↗</a>` : '',
+      ].filter(Boolean);
+
+      return `
+        <div class="playlist-card" onclick="openModal(${esc(JSON.stringify(id))}, ${esc(JSON.stringify(pl.name))}, ${esc(JSON.stringify(pl.emoji || ''))}, ${esc(JSON.stringify(pl.tracks))}, ${esc(JSON.stringify(pl.spotifyUrl || ''))}, ${esc(JSON.stringify(pl.appleUrl || ''))}, ${esc(JSON.stringify(pl.youtubeUrl || ''))})">
+          <div class="card-cover" style="background: ${gradient}">
+            <span style="position:relative;z-index:1">${pl.emoji || '🎵'}</span>
+          </div>
+          <div class="card-body">
+            <div class="card-title">${pl.name}${pl.melonUrl ? ` <span style="display:inline-block; vertical-align:middle; font-size:11px; font-weight:700; color:#00cd3c; background:rgba(0,205,60,0.12); border:1px solid rgba(0,205,60,0.3); border-radius:999px; padding:2px 8px; margin-left:6px;">멜론</span>` : ''}</div>
+            <div class="card-desc">${pl.desc || ''}</div>
+            <div class="card-meta">
+              <div class="card-author">
+                <div class="avatar" style="background:${authorColor}">${pl.author[0]}</div>
+                ${pl.author}
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; position:relative">
+                <button class="like-btn ${isLiked(id) ? 'liked' : ''}" onclick="event.stopPropagation(); toggleLike(this, ${esc(JSON.stringify(id))})" data-id="${id}">
+                  <span class="like-icon">${isLiked(id) ? '♥' : '♡'}</span>
+                  <span class="like-count">${pl.likes || 0}</span>
+                </button>
+                <button class="link-btn" onclick="event.stopPropagation(); copyPlaylistLink(${esc(JSON.stringify(id))})">🔗 링크 복사</button>
+                <div style="font-size:12px; color:var(--text2)">조회 ${pl.views || 0}</div>
+                ${pl.spotifyUrl ? `<a href="${pl.spotifyUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px; color:#1ed760; font-weight:500; text-decoration:none">Spotify ↗</a>` : ''}
+                ${pl.appleUrl ? `<a href="${pl.appleUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px; color:#fc3c44; font-weight:500; text-decoration:none">Apple Music ↗</a>` : ''}
+                ${moreLinks.length ? `
+                  <button onclick="event.stopPropagation(); toggleMore(event, 'more-${id}')" style="font-size:12px; font-weight:500; color:var(--text2); background:none; border:none; cursor:pointer; padding:0">...</button>
+                  <div id="more-${id}" class="more-links" style="display:none; flex-direction:column; gap:6px; position:absolute; top:100%; right:0; margin-top:6px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 12px; z-index:5; white-space:nowrap">
+                    ${moreLinks.join('')}
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+            ${(pl.genres && pl.genres.length) ? `
+              <div class="card-genre-tags">
+                ${pl.genres.map(g => `<div class="card-genre-tag">${escapeHtml(g)}</div>`).join('')}
+              </div>
+            ` : ''}
+            <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border)">
+              ${pl.tracks.slice(0, 3).map((t, i) => `
+                <div style="display:flex; gap:8px; margin-bottom:6px; font-size:13px">
+                  <div style="color:var(--text2); width:16px">${i+1}</div>
+                  <div style="flex:1">
+                    <div style="font-weight:500">${t.title}</div>
+                    <div style="color:var(--text2); font-size:12px">${t.artist}</div>
+                  </div>
+                </div>
+              `).join('')}
+              ${pl.tracks.length > 3 ? `<div style="color:var(--text2); font-size:12px; text-align:center; padding-top:4px">+${pl.tracks.length - 3}곡 더</div>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  window.copyPlaylistLink = function(id) {
+    const url = `${location.origin}${location.pathname}?id=${id}`;
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('링크가 복사되었습니다!'))
+      .catch(() => showToast('링크 복사에 실패했어요.'));
+  };
+
+  window.openModal = function(id, name, emoji, tracks, spotifyUrl, appleUrl, youtubeUrl) {
+    currentPlaylistId = id;
+    document.getElementById('modal-title').textContent = `${emoji} ${name}`;
+
+    updateDoc(doc(db, 'playlists', id), { views: increment(1) }).catch(err => console.error('Error incrementing views:', err));
+
+    const spotifyEmbedUrl = getSpotifyEmbedUrl(spotifyUrl);
+    const spotifyEmbedHtml = spotifyEmbedUrl
+      ? `<iframe style="border-radius:12px; margin-bottom:16px" src="${spotifyEmbedUrl}" width="100%" height="352" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`
+      : '';
+
+    const appleEmbedUrl = getAppleMusicEmbedUrl(appleUrl);
+    const appleEmbedHtml = appleEmbedUrl
+      ? `<iframe style="border-radius:12px; margin-bottom:16px; background:transparent" src="${appleEmbedUrl}" width="100%" height="450" frameBorder="0" allow="autoplay *; encrypted-media *;" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation" loading="lazy"></iframe>`
+      : '';
+
+    const youtubeEmbedUrl = getYoutubeEmbedUrl(youtubeUrl);
+    const youtubeEmbedHtml = youtubeEmbedUrl
+      ? `<iframe style="border-radius:12px; margin-bottom:16px" src="${youtubeEmbedUrl}" width="100%" height="352" frameBorder="0" allow="autoplay; encrypted-media" allowfullscreen loading="lazy"></iframe>`
+      : '';
+
+    document.getElementById('modal-tracks').innerHTML = spotifyEmbedHtml + appleEmbedHtml + youtubeEmbedHtml + tracks.map((t, i) => `
+      <div class="modal-track">
+        <div class="modal-track-num">${i+1}</div>
+        <div class="modal-track-info">
+          <div class="modal-track-title">${t.title}</div>
+          <div class="modal-track-artist">${t.artist}</div>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('modal-overlay').classList.add('open');
+    loadComments(id);
+  };
+
+  function escapeHtml(str) {
+    return (str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  async function loadComments(playlistId) {
+    const list = document.getElementById('comment-list');
+    list.innerHTML = `<div class="comment-empty">불러오는 중...</div>`;
+    try {
+      const q = query(collection(db, 'playlists', playlistId, 'comments'), orderBy('createdAt', 'asc'));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        list.innerHTML = `<div class="comment-empty">아직 댓글이 없어요. 첫 댓글을 남겨보세요!</div>`;
+        return;
+      }
+      list.innerHTML = snapshot.docs.map(doc => {
+        const c = doc.data();
+        return `
+          <div class="comment-item">
+            <div class="comment-author">${escapeHtml(c.author)}</div>
+            <div class="comment-text">${escapeHtml(c.text)}</div>
+          </div>
+        `;
+      }).join('');
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      list.innerHTML = `<div class="comment-empty">댓글을 불러오는데 실패했어요.</div>`;
+    }
+  }
+
+  window.submitComment = async function() {
+    const author = document.getElementById('comment-author').value.trim();
+    const text = document.getElementById('comment-text').value.trim();
+
+    if (!author) { showToast('닉네임을 입력해주세요!'); return; }
+    if (!text) { showToast('댓글 내용을 입력해주세요!'); return; }
+    if (!currentPlaylistId) return;
+
+    try {
+      await addDoc(collection(db, 'playlists', currentPlaylistId, 'comments'), {
+        author,
+        text,
+        createdAt: serverTimestamp()
+      });
+      document.getElementById('comment-text').value = '';
+      loadComments(currentPlaylistId);
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+      showToast('댓글 등록에 실패했어요.');
+    }
+  };
+
+  window.closeModal = function(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
+  };
+
+  window.closeModalDirect = function() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  };
+
+  window.showToast = function(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  };
+
+  window.scrollToCreate = function() {
+    document.getElementById('create-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  window.scrollToFeed = function() {
+    document.getElementById('feed-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+
+  const NOTICE_DISMISS_KEY = 'mucker_dismissed_notice_id';
+
+  async function loadNotice() {
+    try {
+      const q = query(collection(db, 'notices'), orderBy('createdAt', 'desc'), limit(1));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) return;
+
+      const noticeDoc = snapshot.docs[0];
+      if (localStorage.getItem(NOTICE_DISMISS_KEY) === noticeDoc.id) return;
+
+      const banner = document.getElementById('notice-banner');
+      document.getElementById('notice-banner-text').textContent = noticeDoc.data().text || '';
+      banner.dataset.id = noticeDoc.id;
+      banner.classList.add('show');
+    } catch (error) {
+      console.error('Error loading notice:', error);
+    }
+  }
+
+  window.dismissNotice = function() {
+    const banner = document.getElementById('notice-banner');
+    localStorage.setItem(NOTICE_DISMISS_KEY, banner.dataset.id || '');
+    banner.classList.remove('show');
+  };
+
+  // 초기 로드
+  loadPlaylists();
+  loadNotice();
+</script>
+</body>
+</html>

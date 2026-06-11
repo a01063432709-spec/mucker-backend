@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>곡 공유 — mucKer</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --accent: #7c4dff;
+    --accent2: #ff4d8d;
+    --accent3: #4dffb4;
+    --text: #f0f0f8;
+    --text2: #888899;
+    --border: rgba(255,255,255,0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(124,77,255,0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(255,77,141,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(77,255,180,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -1px;
+    text-decoration: none;
+  }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    padding: 8px 20px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    color: var(--text);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(124,77,255,0.4);
+  }
+
+  .btn-large {
+    padding: 14px 32px;
+    font-size: 16px;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .page-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: clamp(28px, 5vw, 44px);
+    margin-bottom: 8px;
+    letter-spacing: -1px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .page-sub {
+    color: var(--text2);
+    font-size: 15px;
+    margin-bottom: 36px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .create-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    margin: 0 0 28px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .section-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .input-group label {
+    font-size: 13px;
+    color: var(--text2);
+    font-weight: 500;
+  }
+
+  .input-group input, .input-group textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-group input:focus, .input-group textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .song-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .song-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .song-row:hover {
+    border-color: rgba(124,77,255,0.3);
+    transform: translateY(-2px);
+  }
+
+  .song-info { min-width: 0; flex: 1; }
+
+  .song-title {
+    font-weight: 700;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .song-artist {
+    color: var(--text2);
+    font-size: 12px;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .song-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .song-platform-badge {
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid;
+    border-radius: 999px;
+    padding: 3px 10px;
+    white-space: nowrap;
+  }
+
+  .song-clicks {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent3);
+    white-space: nowrap;
+  }
+
+  .like-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    padding: 0;
+    transition: color 0.2s, transform 0.15s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .like-btn:hover { color: var(--accent2); }
+
+  .like-btn.liked { color: var(--accent2); cursor: default; }
+
+  .like-btn .like-icon { font-size: 14px; }
+
+  .like-btn.just-liked .like-icon { animation: likePop 0.3s ease; }
+
+  .link-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    padding: 0;
+    transition: color 0.2s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .link-btn:hover { color: var(--accent); }
+
+  @keyframes likePop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 32px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    transform: translateY(20px);
+    transition: transform 0.3s;
+  }
+
+  .modal-overlay.open .modal {
+    transform: translateY(0);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .modal-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 22px;
+  }
+
+  .close-btn {
+    background: var(--surface2);
+    border: none;
+    color: var(--text2);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+  }
+
+  .close-btn:hover { color: var(--text); }
+
+  .comments-section {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+
+  .comments-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  .comment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .comment-form-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .comment-form input, .comment-form textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .comment-form input:focus, .comment-form textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .comment-form input { width: 120px; flex-shrink: 0; }
+  .comment-form textarea { flex: 1; resize: vertical; min-height: 40px; }
+
+  .comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .comment-item {
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+
+  .comment-author {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .comment-text {
+    font-size: 13px;
+    color: var(--text2);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .comment-empty {
+    font-size: 13px;
+    color: var(--text2);
+    text-align: center;
+    padding: 12px 0;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 12px 24px;
+    font-size: 14px;
+    z-index: 300;
+    transition: transform 0.3s;
+    white-space: nowrap;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text2);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(124,77,255,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="mucker-beta.html">muc<span>K</span>er</a>
+  <nav>
+    <a class="btn btn-ghost" href="mucker-beta.html">홈으로</a>
+    <a class="btn btn-ghost" href="charts.html">차트</a>
+  </nav>
+</header>
+
+<main>
+  <div class="page-title">곡 공유 🎵</div>
+  <div class="page-sub">좋아하는 곡 하나를 링크와 함께 공유해보세요.</div>
+
+  <section class="create-section" id="song-create-section">
+    <div class="section-title"><div class="dot"></div>단일 곡 공유하기</div>
+
+    <div class="form-grid">
+      <div class="input-group">
+        <label>곡 제목 *</label>
+        <input type="text" id="song-title" placeholder="ex) Dynamite" maxlength="60">
+      </div>
+      <div class="input-group">
+        <label>아티스트 *</label>
+        <input type="text" id="song-artist" placeholder="ex) BTS" maxlength="40">
+      </div>
+    </div>
+
+    <div class="input-group" style="margin-bottom:16px">
+      <label>닉네임 *</label>
+      <input type="text" id="song-author" placeholder="ex) 음악덕후" maxlength="20">
+    </div>
+
+    <div class="input-group" style="margin-bottom:20px">
+      <label>곡 링크 * (Spotify, Apple Music, YouTube, YouTube Music, Melon, Genie, FLO)</label>
+      <input type="text" id="song-url" placeholder="https://...">
+    </div>
+
+    <div style="display:flex; justify-content:flex-end;">
+      <button class="btn btn-primary btn-large" onclick="submitSong()">곡 공유하기 🎵</button>
+    </div>
+  </section>
+
+  <section id="song-section">
+    <div class="section-title" style="margin-bottom:16px"><div class="dot"></div>공유된 곡</div>
+    <div class="song-list" id="song-list">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="close-btn" onclick="closeModalDirect()">×</button>
+    </div>
+    <div id="modal-song-info" style="margin-bottom:20px"></div>
+    <div class="comments-section">
+      <div class="comments-title">댓글</div>
+      <div class="comment-form">
+        <div class="comment-form-row">
+          <input type="text" id="comment-author" placeholder="닉네임" maxlength="20">
+          <textarea id="comment-text" placeholder="댓글을 남겨보세요" maxlength="300"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="submitComment()">댓글 등록</button>
+      </div>
+      <div class="comment-list" id="comment-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBdW9OvqKQVQ5ExZB53i0P1piRHAGKfKuA",
+    authDomain: "mucker-ca90a.firebaseapp.com",
+    projectId: "mucker-ca90a",
+    storageBucket: "mucker-ca90a.firebasestorage.app",
+    messagingSenderId: "221353818492",
+    appId: "1:221353818492:web:fb0396da5fd29ea7864cf9",
+    measurementId: "G-GKY7N9RTPJ"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  function escapeHtml(str) {
+    return (str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  // Escapes a JSON string for safe embedding inside a double-quoted HTML attribute
+  function esc(jsonStr) {
+    return jsonStr.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+  }
+
+  // Removes Zalgo-style combining diacritical marks that can corrupt the UI layout
+  function stripCombiningMarks(str) {
+    return (str || '').replace(/[\p{Mn}\p{Me}\p{Mc}]/gu, '');
+  }
+
+  function hasUrlPath(url) {
+    try {
+      return new URL(url).pathname.length > 1;
+    } catch {
+      return false;
+    }
+  }
+
+  // Format/ID-based validation for a single-track link on each platform
+  function validateSongUrl(url) {
+    if (url.includes('open.spotify.com')) {
+      return /\/track\/[A-Za-z0-9]{22}(\?|$|\/)/.test(url);
+    }
+    if (url.includes('music.apple.com')) {
+      return /\/(song|album)\/[^\/?]+\/\d+/.test(url);
+    }
+    if (url.includes('music.youtube.com')) {
+      return /[?&]v=[A-Za-z0-9_-]{11}/.test(url);
+    }
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      return /[?&]v=[A-Za-z0-9_-]{11}/.test(url) || /youtu\.be\/[A-Za-z0-9_-]{11}/.test(url);
+    }
+    if (url.includes('kko.to')) {
+      return hasUrlPath(url);
+    }
+    if (url.includes('melon.com')) {
+      return /[?&]songId=\d+/.test(url);
+    }
+    if (url.includes('flomuz.io')) {
+      return hasUrlPath(url);
+    }
+    if (url.includes('music-flo.com')) {
+      return /\/detail\/track\/\d+/.test(url);
+    }
+    if (url.includes('genie.co.kr')) {
+      return /xgnm=\d+/.test(url) || hasUrlPath(url);
+    }
+    return false;
+  }
+
+  window.showToast = function(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  };
+
+  // ── 단일 곡 공유 ────────────────────────────────────────────────────────────
+
+  const PLATFORM_INFO = [
+    { label: 'Spotify', color: '#1ed760', match: u => u.includes('open.spotify.com') },
+    { label: 'Apple Music', color: '#fc3c44', match: u => u.includes('music.apple.com') },
+    { label: 'YouTube Music', color: '#ff0000', match: u => u.includes('music.youtube.com') },
+    { label: 'YouTube', color: '#ff0000', match: u => u.includes('youtube.com') || u.includes('youtu.be') },
+    { label: 'Melon', color: '#00cd3c', match: u => u.includes('melon.com') || u.includes('kko.to') },
+    { label: 'FLO', color: '#5e35e2', match: u => u.includes('music-flo.com') || u.includes('flomuz.io') },
+    { label: 'Genie', color: '#00b6f1', match: u => u.includes('genie.co.kr') },
+  ];
+
+  function detectPlatform(url) {
+    return PLATFORM_INFO.find(p => p.match(url)) || null;
+  }
+
+  let allSongs = [];
+  let currentSongId = null;
+
+  const LIKED_KEY = 'mucker_liked_songs';
+
+  function getLikedIds() {
+    try {
+      return JSON.parse(localStorage.getItem(LIKED_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function isLiked(id) {
+    return getLikedIds().includes(id);
+  }
+
+  window.toggleLike = async function(btn, id) {
+    if (isLiked(id)) {
+      showToast('이미 좋아요를 눌렀어요!');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'songs', id), { likes: increment(1) });
+
+      const liked = getLikedIds();
+      liked.push(id);
+      localStorage.setItem(LIKED_KEY, JSON.stringify(liked));
+
+      btn.classList.add('liked', 'just-liked');
+      btn.querySelector('.like-icon').textContent = '♥';
+      const countEl = btn.querySelector('.like-count');
+      countEl.textContent = (parseInt(countEl.textContent, 10) || 0) + 1;
+
+      const song = allSongs.find(s => s.id === id);
+      if (song) song.data.likes = (song.data.likes || 0) + 1;
+    } catch (error) {
+      console.error('Error liking song:', error);
+      showToast('좋아요 처리에 실패했어요.');
+    }
+  };
+
+  window.copySongLink = function(id) {
+    const url = `${location.origin}${location.pathname}?id=${id}`;
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('링크가 복사되었습니다!'))
+      .catch(() => showToast('링크 복사에 실패했어요.'));
+  };
+
+  window.submitSong = async function() {
+    const title = stripCombiningMarks(document.getElementById('song-title').value.trim());
+    const artist = stripCombiningMarks(document.getElementById('song-artist').value.trim());
+    const author = stripCombiningMarks(document.getElementById('song-author').value.trim());
+    const url = document.getElementById('song-url').value.trim();
+
+    if (!title) { showToast('곡 제목을 입력해주세요!'); return; }
+    if (!artist) { showToast('아티스트를 입력해주세요!'); return; }
+    if (!author) { showToast('닉네임을 입력해주세요!'); return; }
+    if (!url) { showToast('곡 링크를 입력해주세요!'); return; }
+
+    const platform = detectPlatform(url);
+    if (!platform) {
+      showToast('Spotify, Apple Music, YouTube, YouTube Music, Melon, Genie, FLO 링크만 지원해요!');
+      return;
+    }
+
+    if (!validateSongUrl(url)) {
+      showToast(`${platform.label} 곡 상세 페이지 링크 형식이 올바르지 않아요.`);
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'songs'), {
+        title,
+        artist,
+        author,
+        url,
+        platform: platform.label,
+        clicks: 0,
+        createdAt: serverTimestamp()
+      });
+
+      document.getElementById('song-title').value = '';
+      document.getElementById('song-artist').value = '';
+      document.getElementById('song-author').value = '';
+      document.getElementById('song-url').value = '';
+
+      showToast('곡이 공유됐어요! 🎵');
+      loadSongs();
+    } catch (error) {
+      console.error('Error sharing song:', error);
+      showToast('오류가 발생했어요. 다시 시도해주세요.');
+    }
+  };
+
+  async function loadSongs() {
+    const list = document.getElementById('song-list');
+    try {
+      const q = query(collection(db, 'songs'), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      allSongs = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+      renderSongs();
+
+      const sharedId = new URLSearchParams(location.search).get('id');
+      if (sharedId && allSongs.some(s => s.id === sharedId)) {
+        openSongModal(sharedId);
+      }
+    } catch (error) {
+      console.error('Error loading songs:', error);
+      list.innerHTML = `<div style="text-align:center; padding:40px; color:red">데이터를 불러오는데 실패했어요.</div>`;
+    }
+  }
+
+  function renderSongs() {
+    const list = document.getElementById('song-list');
+
+    if (allSongs.length === 0) {
+      list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text2)">아직 공유된 곡이 없어요. 첫 곡을 공유해보세요! 🎵</div>`;
+      return;
+    }
+
+    list.innerHTML = allSongs.map(({ id, data: s }) => {
+      const platformInfo = PLATFORM_INFO.find(p => p.label === s.platform);
+      const color = platformInfo ? platformInfo.color : 'var(--text2)';
+      return `
+        <div class="song-row" onclick="openSongModal(${esc(JSON.stringify(id))})">
+          <div class="song-info">
+            <div class="song-title">${escapeHtml(s.title)}</div>
+            <div class="song-artist">${escapeHtml(s.artist)} · ${escapeHtml(s.author)}</div>
+          </div>
+          <div class="song-meta">
+            <button class="like-btn ${isLiked(id) ? 'liked' : ''}" onclick="event.stopPropagation(); toggleLike(this, ${esc(JSON.stringify(id))})" data-id="${id}">
+              <span class="like-icon">${isLiked(id) ? '♥' : '♡'}</span>
+              <span class="like-count">${s.likes || 0}</span>
+            </button>
+            <button class="link-btn" onclick="event.stopPropagation(); copySongLink(${esc(JSON.stringify(id))})">🔗 링크 복사</button>
+            <span class="song-platform-badge" style="color:${color}; border-color:${color}">${escapeHtml(s.platform)}</span>
+            <span class="song-clicks">▶ ${s.clicks || 0}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  window.playSong = function(id, url) {
+    updateDoc(doc(db, 'songs', id), { clicks: increment(1) }).catch(err => console.error('Error incrementing clicks:', err));
+
+    const song = allSongs.find(s => s.id === id);
+    if (song) {
+      song.data.clicks = (song.data.clicks || 0) + 1;
+      renderSongs();
+    }
+
+    window.open(url, '_blank', 'noopener');
+  };
+
+  window.openSongModal = function(id) {
+    const song = allSongs.find(s => s.id === id);
+    if (!song) return;
+    const s = song.data;
+
+    currentSongId = id;
+    document.getElementById('modal-title').textContent = s.title;
+
+    const platformInfo = PLATFORM_INFO.find(p => p.label === s.platform);
+    const color = platformInfo ? platformInfo.color : 'var(--text2)';
+
+    document.getElementById('modal-song-info').innerHTML = `
+      <div style="margin-bottom:16px">
+        <div style="font-size:14px; color:var(--text2); margin-bottom:4px">${escapeHtml(s.artist)} · ${escapeHtml(s.author)}</div>
+        <span class="song-platform-badge" style="color:${color}; border-color:${color}">${escapeHtml(s.platform)}</span>
+      </div>
+      <button class="btn btn-primary btn-large" style="width:100%" onclick="playSong(${esc(JSON.stringify(id))}, ${esc(JSON.stringify(s.url))})">곡 재생하기 ▶</button>
+      <button class="btn btn-ghost btn-large" style="width:100%; margin-top:8px" onclick="copySongLink(${esc(JSON.stringify(id))})">🔗 링크 복사</button>
+    `;
+
+    document.getElementById('modal-overlay').classList.add('open');
+    loadComments(id);
+  };
+
+  window.closeModal = function(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
+  };
+
+  window.closeModalDirect = function() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  };
+
+  async function loadComments(songId) {
+    const list = document.getElementById('comment-list');
+    list.innerHTML = `<div class="comment-empty">불러오는 중...</div>`;
+    try {
+      const q = query(collection(db, 'songs', songId, 'comments'), orderBy('createdAt', 'asc'));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        list.innerHTML = `<div class="comment-empty">아직 댓글이 없어요. 첫 댓글을 남겨보세요!</div>`;
+        return;
+      }
+      list.innerHTML = snapshot.docs.map(doc => {
+        const c = doc.data();
+        return `
+          <div class="comment-item">
+            <div class="comment-author">${escapeHtml(c.author)}</div>
+            <div class="comment-text">${escapeHtml(c.text)}</div>
+          </div>
+        `;
+      }).join('');
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      list.innerHTML = `<div class="comment-empty">댓글을 불러오는데 실패했어요.</div>`;
+    }
+  }
+
+  window.submitComment = async function() {
+    const author = document.getElementById('comment-author').value.trim();
+    const text = document.getElementById('comment-text').value.trim();
+
+    if (!author) { showToast('닉네임을 입력해주세요!'); return; }
+    if (!text) { showToast('댓글 내용을 입력해주세요!'); return; }
+    if (!currentSongId) return;
+
+    try {
+      await addDoc(collection(db, 'songs', currentSongId, 'comments'), {
+        author,
+        text,
+        createdAt: serverTimestamp()
+      });
+      document.getElementById('comment-author').value = '';
+      document.getElementById('comment-text').value = '';
+      loadComments(currentSongId);
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+      showToast('댓글 등록에 실패했어요.');
+    }
+  };
+
+  loadSongs();
+</script>
+</body>
+</html>

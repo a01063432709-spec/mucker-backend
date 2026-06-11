@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>차트 — mucKer</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --accent: #7c4dff;
+    --accent2: #ff4d8d;
+    --accent3: #4dffb4;
+    --text: #f0f0f8;
+    --text2: #888899;
+    --border: rgba(255,255,255,0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(124,77,255,0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(255,77,141,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(77,255,180,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -1px;
+    text-decoration: none;
+  }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    padding: 8px 20px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    color: var(--text);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .page-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: clamp(28px, 5vw, 44px);
+    margin-bottom: 8px;
+    letter-spacing: -1px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .page-sub {
+    color: var(--text2);
+    font-size: 15px;
+    margin-bottom: 36px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .chart-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .section-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+
+  .chart-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .chart-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    transition: all 0.2s;
+  }
+
+  .chart-row.clickable { cursor: pointer; }
+
+  .chart-row.clickable:hover {
+    border-color: rgba(124,77,255,0.3);
+    transform: translateY(-2px);
+  }
+
+  .rank {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 22px;
+    width: 36px;
+    flex-shrink: 0;
+    text-align: center;
+    color: var(--text2);
+  }
+
+  .chart-row:nth-child(1) .rank { color: #ffd93d; }
+  .chart-row:nth-child(2) .rank { color: #c0c0c0; }
+  .chart-row:nth-child(3) .rank { color: #cd7f32; }
+
+  .row-emoji {
+    font-size: 24px;
+    width: 36px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  .row-info { flex: 1; min-width: 0; }
+
+  .row-title {
+    font-weight: 700;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .row-sub {
+    color: var(--text2);
+    font-size: 13px;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .row-value {
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent3);
+    white-space: nowrap;
+  }
+
+  .row-value .unit {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    margin-left: 4px;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 40px 0;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text2);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(124,77,255,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="mucker-beta.html">muc<span>K</span>er</a>
+  <nav>
+    <a class="btn btn-ghost" href="mucker-beta.html">홈으로</a>
+  </nav>
+</header>
+
+<main>
+  <div class="page-title">차트 🏆</div>
+  <div class="page-sub">mucKer에 공유된 플레이리스트를 기준으로 집계한 인기 순위예요.</div>
+
+  <section class="chart-section">
+    <div class="section-title"><div class="dot"></div>플레이리스트 차트 (조회수)</div>
+    <div class="chart-list" id="playlist-chart">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </section>
+
+  <section class="chart-section">
+    <div class="section-title"><div class="dot"></div>좋아요 차트</div>
+    <div class="chart-list" id="like-chart">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </section>
+
+  <section class="chart-section">
+    <div class="section-title"><div class="dot"></div>닉네임 차트 (총 조회수)</div>
+    <div class="chart-list" id="nickname-chart">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBdW9OvqKQVQ5ExZB53i0P1piRHAGKfKuA",
+    authDomain: "mucker-ca90a.firebaseapp.com",
+    projectId: "mucker-ca90a",
+    storageBucket: "mucker-ca90a.firebasestorage.app",
+    messagingSenderId: "221353818492",
+    appId: "1:221353818492:web:fb0396da5fd29ea7864cf9",
+    measurementId: "G-GKY7N9RTPJ"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  function escapeHtml(str) {
+    return (str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  function renderEmpty(elId, message) {
+    document.getElementById(elId).innerHTML = `<div class="empty">${message}</div>`;
+  }
+
+  async function loadCharts() {
+    let playlists;
+    try {
+      const snapshot = await getDocs(collection(db, 'playlists'));
+      playlists = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+    } catch (error) {
+      console.error('Error loading playlists:', error);
+      ['playlist-chart', 'like-chart', 'nickname-chart'].forEach(id =>
+        renderEmpty(id, '데이터를 불러오는데 실패했어요.')
+      );
+      return;
+    }
+
+    if (playlists.length === 0) {
+      ['playlist-chart', 'like-chart', 'nickname-chart'].forEach(id =>
+        renderEmpty(id, '아직 공유된 플리가 없어요.')
+      );
+      return;
+    }
+
+    renderPlaylistChart(playlists);
+    renderLikeChart(playlists);
+    renderNicknameChart(playlists);
+  }
+
+  function renderPlaylistChart(playlists) {
+    const sorted = [...playlists].sort((a, b) => (b.data.views || 0) - (a.data.views || 0)).slice(0, 20);
+
+    document.getElementById('playlist-chart').innerHTML = sorted.map(({ id, data: pl }, idx) => `
+      <div class="chart-row clickable" onclick="location.href='mucker-beta.html'">
+        <div class="rank">${idx + 1}</div>
+        <div class="row-emoji">${pl.emoji || '🎵'}</div>
+        <div class="row-info">
+          <div class="row-title">${escapeHtml(pl.name)}</div>
+          <div class="row-sub">${escapeHtml(pl.author)}</div>
+        </div>
+        <div class="row-value">${pl.views || 0}<span class="unit">회</span></div>
+      </div>
+    `).join('');
+  }
+
+  function renderLikeChart(playlists) {
+    const sorted = [...playlists].sort((a, b) => (b.data.likes || 0) - (a.data.likes || 0)).slice(0, 20);
+
+    if (sorted.every(({ data }) => !(data.likes || 0))) {
+      renderEmpty('like-chart', '아직 좋아요를 받은 플리가 없어요.');
+      return;
+    }
+
+    document.getElementById('like-chart').innerHTML = sorted.map(({ id, data: pl }, idx) => `
+      <div class="chart-row clickable" onclick="location.href='mucker-beta.html'">
+        <div class="rank">${idx + 1}</div>
+        <div class="row-emoji">${pl.emoji || '🎵'}</div>
+        <div class="row-info">
+          <div class="row-title">${escapeHtml(pl.name)}</div>
+          <div class="row-sub">${escapeHtml(pl.author)}</div>
+        </div>
+        <div class="row-value">♥ ${pl.likes || 0}</div>
+      </div>
+    `).join('');
+  }
+
+
+  function renderNicknameChart(playlists) {
+    const totals = new Map();
+
+    playlists.forEach(({ data: pl }) => {
+      const author = (pl.author || '').trim();
+      if (!author) return;
+      totals.set(author, (totals.get(author) || 0) + (pl.views || 0));
+    });
+
+    const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20);
+
+    const COLORS = ['#7c4dff','#ff4d8d','#4dffb4','#ffb74d','#4d8dff'];
+
+    document.getElementById('nickname-chart').innerHTML = sorted.map(([author, views], idx) => `
+      <div class="chart-row">
+        <div class="rank">${idx + 1}</div>
+        <div class="row-emoji" style="display:flex; align-items:center; justify-content:center; border-radius:50%; background:${COLORS[idx % COLORS.length]}; width:32px; height:32px; font-size:13px; font-weight:700; color:white;">${escapeHtml(author[0] || '?')}</div>
+        <div class="row-info">
+          <div class="row-title">${escapeHtml(author)}</div>
+        </div>
+        <div class="row-value">${views}<span class="unit">총 조회수</span></div>
+      </div>
+    `).join('');
+  }
+
+  loadCharts();
+</script>
+</body>
+</html>

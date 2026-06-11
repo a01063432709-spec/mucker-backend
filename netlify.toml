@@ -1,0 +1,9 @@
+[[redirects]]
+  from = "/"
+  to = "/mucker-beta.html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/mucker-beta.html"
+  status = 404

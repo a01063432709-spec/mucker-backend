@@ -105,6 +105,36 @@ app.get('/api/test', (req, res) => {
   ]);
 });
 
+// Checks whether a Spotify playlist exists and is accessible (used for link validation)
+app.get('/api/spotify/validate', async (req, res) => {
+  const id = (req.query.id || '').trim();
+  if (!id) {
+    return res.status(400).json({ error: 'id 쿼리 파라미터가 필요해요' });
+  }
+
+  let token;
+  try {
+    token = await getValidToken();
+  } catch (err) {
+    console.error('Token error:', err.response?.status, JSON.stringify(err.response?.data) || err.message);
+    return res.status(401).json({ error: 'Not authenticated. Visit /auth/login first.' });
+  }
+
+  try {
+    await axios.get(`https://api.spotify.com/v1/playlists/${id}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      params: { fields: 'id' },
+    });
+    res.json({ exists: true });
+  } catch (err) {
+    if (err.response?.status === 404 || err.response?.status === 403) {
+      return res.json({ exists: false });
+    }
+    console.error('Playlist exists check error:', err.response?.status, JSON.stringify(err.response?.data) || err.message);
+    res.status(err.response?.status || 500).json({ error: 'Spotify API 오류' });
+  }
+});
+
 app.get('/api/playlist/:id', async (req, res) => {
   let token;
   try {
@@ -219,6 +249,36 @@ app.get('/api/apple/playlist/:id', async (req, res) => {
   }
 });
 
+// Checks whether an Apple Music playlist exists in the given storefront catalog
+app.get('/api/apple/validate', async (req, res) => {
+  const id = (req.query.id || '').trim();
+  const storefront = (req.query.storefront || 'us').trim();
+  if (!id) {
+    return res.status(400).json({ error: 'id 쿼리 파라미터가 필요해요' });
+  }
+
+  let devToken;
+  try {
+    devToken = getAppleDeveloperToken();
+  } catch (err) {
+    return res.status(500).json({ error: 'Apple Music credentials not configured', detail: err.message });
+  }
+
+  try {
+    await axios.get(`https://api.music.apple.com/v1/catalog/${storefront}/playlists/${id}`, {
+      headers: { Authorization: `Bearer ${devToken}` },
+      params: { fields: 'id' },
+    });
+    res.json({ exists: true });
+  } catch (err) {
+    if (err.response?.status === 404) {
+      return res.json({ exists: false });
+    }
+    console.error('Apple validate error:', err.response?.status, JSON.stringify(err.response?.data) || err.message);
+    res.status(err.response?.status || 500).json({ error: 'Apple Music API 오류' });
+  }
+});
+
 // ── Melon ───────────────────────────────────────────────────────────────────
 
 const MELON_HEADERS = {
@@ -297,6 +357,36 @@ app.get('/api/melon/playlist', async (req, res) => {
     res.json({ plylstSeq, tracks });
   } catch (err) {
     console.error('Melon scrape error:', err.response?.status, err.message);
+    res.status(err.response?.status || 500).json({ error: 'Melon 스크래핑 오류', detail: err.message });
+  }
+});
+
+// Checks whether a Melon playlist exists by resolving the URL and checking for tracks
+app.get('/api/melon/validate', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+
+  if (!inputUrl) {
+    return res.status(400).json({ error: 'url 쿼리 파라미터가 필요해요' });
+  }
+  if (!inputUrl.includes('melon.com') && !inputUrl.includes('kko.to')) {
+    return res.status(400).json({ error: 'Melon 또는 kko.to 링크만 지원해요' });
+  }
+
+  try {
+    const resolvedUrl = await resolveMelonUrl(inputUrl);
+    const match = resolvedUrl.match(/plylstSeq=(\d+)/);
+    if (!match) {
+      return res.json({ exists: false });
+    }
+
+    const viewRes = await axios.get('https://www.melon.com/mymusic/dj/mymusicdjplaylistview_inform.htm', {
+      params: { plylstSeq: match[1] },
+      headers: MELON_HEADERS,
+    });
+    const tracks = parseMelonTracks(viewRes.data);
+    res.json({ exists: tracks.length > 0 });
+  } catch (err) {
+    console.error('Melon validate error:', err.response?.status, err.message);
     res.status(err.response?.status || 500).json({ error: 'Melon 스크래핑 오류', detail: err.message });
   }
 });
@@ -384,6 +474,49 @@ app.get('/api/flo/playlist', async (req, res) => {
   }
 });
 
+// Checks whether a FLO playlist exists by resolving the URL and querying its endpoints
+app.get('/api/flo/validate', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+
+  if (!inputUrl) {
+    return res.status(400).json({ error: 'url 쿼리 파라미터가 필요해요' });
+  }
+  if (!inputUrl.includes('music-flo.com') && !inputUrl.includes('flomuz.io')) {
+    return res.status(400).json({ error: 'FLO 링크만 지원해요' });
+  }
+
+  try {
+    const resolvedUrl = await resolveFloUrl(inputUrl);
+    const match = resolvedUrl.match(/\/detail\/(playlist|openplaylist|pri-playlist|pri_playlist)\/(\d+)/);
+    if (!match) {
+      return res.json({ exists: false });
+    }
+    const [, type, id] = match;
+
+    const endpoints = type === 'playlist'
+      ? [`https://www.music-flo.com/api/meta/v1/channel/${id}`, `https://www.music-flo.com/api/personal/v1/playlist/${id}`]
+      : type === 'openplaylist'
+        ? [`https://www.music-flo.com/api/personal/v1/playlist/${id}`, `https://www.music-flo.com/api/meta/v1/channel/${id}`]
+        : [`https://www.music-flo.com/api/personal/v1/pri_playlist/${id}`];
+
+    let exists = false;
+    for (const endpoint of endpoints) {
+      try {
+        const response = await axios.get(endpoint, { headers: FLO_HEADERS });
+        if (response.data?.code === '2000000') {
+          exists = true;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    res.json({ exists });
+  } catch (err) {
+    console.error('FLO validate error:', err.response?.status, err.message);
+    res.status(err.response?.status || 500).json({ error: 'FLO 스크래핑 오류', detail: err.message });
+  }
+});
+
 // ── Genie ───────────────────────────────────────────────────────────────────
 
 const GENIE_HEADERS = {
@@ -435,6 +568,37 @@ app.get('/api/genie/playlist', async (req, res) => {
     res.json({ plmSeq: match[1], tracks });
   } catch (err) {
     console.error('Genie scrape error:', err.response?.status, err.message);
+    res.status(err.response?.status || 500).json({ error: 'Genie 스크래핑 오류', detail: err.message });
+  }
+});
+
+// Checks whether a Genie playlist exists by following the link and checking for tracks
+app.get('/api/genie/validate', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+
+  if (!inputUrl) {
+    return res.status(400).json({ error: 'url 쿼리 파라미터가 필요해요' });
+  }
+  if (!inputUrl.includes('genie.co.kr')) {
+    return res.status(400).json({ error: 'Genie 링크만 지원해요' });
+  }
+
+  try {
+    const response = await axios.get(inputUrl, {
+      headers: GENIE_HEADERS,
+      maxRedirects: 5,
+    });
+    const finalUrl = response.request?.res?.responseUrl || inputUrl;
+
+    const match = finalUrl.match(/pl[ym]Seq=(\d+)/);
+    if (!match) {
+      return res.json({ exists: false });
+    }
+
+    const tracks = parseGenieTracks(response.data);
+    res.json({ exists: tracks.length > 0 });
+  } catch (err) {
+    console.error('Genie validate error:', err.response?.status, err.message);
     res.status(err.response?.status || 500).json({ error: 'Genie 스크래핑 오류', detail: err.message });
   }
 });
@@ -551,6 +715,36 @@ app.get('/api/youtube/playlist', async (req, res) => {
   } catch (err) {
     console.error('YouTube scrape error:', err.response?.status, err.message);
     res.status(err.response?.status || 500).json({ error: 'YouTube 스크래핑 오류', detail: err.message });
+  }
+});
+
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+
+// Checks whether a YouTube playlist exists, using the Data API if a key is configured
+// and falling back to scraping the playlist page otherwise
+app.get('/api/youtube/validate', async (req, res) => {
+  const id = (req.query.id || '').trim();
+  if (!id) {
+    return res.status(400).json({ error: 'id 쿼리 파라미터가 필요해요' });
+  }
+
+  try {
+    if (YOUTUBE_API_KEY) {
+      const response = await axios.get('https://www.googleapis.com/youtube/v3/playlists', {
+        params: { part: 'id', id, key: YOUTUBE_API_KEY },
+      });
+      return res.json({ exists: (response.data.items || []).length > 0 });
+    }
+
+    const response = await axios.get(`https://www.youtube.com/playlist?list=${id}`, { headers: YOUTUBE_HEADERS });
+    const tracks = parseYoutubeTracks(response.data);
+    res.json({ exists: tracks.length > 0 });
+  } catch (err) {
+    if (err.response?.status === 404) {
+      return res.json({ exists: false });
+    }
+    console.error('YouTube validate error:', err.response?.status, err.message);
+    res.status(err.response?.status || 500).json({ error: 'YouTube API 오류', detail: err.message });
   }
 });
 
