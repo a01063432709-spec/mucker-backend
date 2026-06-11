@@ -386,6 +386,9 @@ app.get('/api/melon/validate', async (req, res) => {
     const tracks = parseMelonTracks(viewRes.data);
     res.json({ exists: tracks.length > 0 });
   } catch (err) {
+    if (err.response?.status === 404) {
+      return res.json({ exists: false });
+    }
     console.error('Melon validate error:', err.response?.status, err.message);
     res.status(err.response?.status || 500).json({ error: 'Melon 스크래핑 오류', detail: err.message });
   }
@@ -512,6 +515,9 @@ app.get('/api/flo/validate', async (req, res) => {
 
     res.json({ exists });
   } catch (err) {
+    if (err.response?.status === 404) {
+      return res.json({ exists: false });
+    }
     console.error('FLO validate error:', err.response?.status, err.message);
     res.status(err.response?.status || 500).json({ error: 'FLO 스크래핑 오류', detail: err.message });
   }
@@ -598,6 +604,9 @@ app.get('/api/genie/validate', async (req, res) => {
     const tracks = parseGenieTracks(response.data);
     res.json({ exists: tracks.length > 0 });
   } catch (err) {
+    if (err.response?.status === 404) {
+      return res.json({ exists: false });
+    }
     console.error('Genie validate error:', err.response?.status, err.message);
     res.status(err.response?.status || 500).json({ error: 'Genie 스크래핑 오류', detail: err.message });
   }
