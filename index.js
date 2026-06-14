@@ -936,8 +936,45 @@ const APPLE_SCRAPE_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
 };
 
+// Caches scrape results by URL so repeated auto-fill requests (e.g. reopening
+// the create modal) don't re-fetch and re-parse the same Apple Music page.
+const APPLE_META_CACHE_MAX = 500;
+const APPLE_META_CACHE_TTL = 60 * 60 * 1000; // 1 hour for successful scrapes
+const APPLE_META_CACHE_TTL_EMPTY = 5 * 60 * 1000; // retry sooner if nothing was found
+const appleMetaCache = new Map();
+
+function getAppleMetaCache(key) {
+  const entry = appleMetaCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiry) {
+    appleMetaCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setAppleMetaCache(key, data) {
+  if (appleMetaCache.size >= APPLE_META_CACHE_MAX) {
+    appleMetaCache.delete(appleMetaCache.keys().next().value);
+  }
+  const ttl = data.title ? APPLE_META_CACHE_TTL : APPLE_META_CACHE_TTL_EMPTY;
+  appleMetaCache.set(key, { data, expiry: Date.now() + ttl });
+}
+
+function decodeHtmlEntities(str) {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&#39;/gi, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(code));
+}
+
 // Scrapes an Apple Music song/album/playlist page for its title and artist.
 // Returns {} if the URL isn't a music.apple.com link or nothing could be found.
+// Uses lightweight regex extraction (instead of a full DOM parse) and an
+// in-memory cache, since the JSON-LD/og:title we need sit in known tags.
 async function scrapeAppleMusicMeta(inputUrl) {
   let parsed;
   try {
@@ -947,20 +984,25 @@ async function scrapeAppleMusicMeta(inputUrl) {
   }
   if (!/(^|\.)music\.apple\.com$/.test(parsed.hostname)) return {};
 
+  const cacheKey = parsed.href;
+  const cached = getAppleMetaCache(cacheKey);
+  if (cached) return cached;
+
   try {
-    const resp = await axios.get(inputUrl, { headers: APPLE_SCRAPE_HEADERS, maxRedirects: 5, timeout: 8000 });
-    const $ = cheerio.load(resp.data);
+    const resp = await axios.get(inputUrl, { headers: APPLE_SCRAPE_HEADERS, maxRedirects: 5, timeout: 5000 });
+    const html = resp.data;
 
     let title = '';
     let artist = '';
 
-    $('script[type="application/ld+json"]').each((_, el) => {
-      if (title && artist) return;
+    const ldJsonRegex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g;
+    let match;
+    while ((match = ldJsonRegex.exec(html))) {
       let data;
       try {
-        data = JSON.parse($(el).contents().text());
+        data = JSON.parse(match[1]);
       } catch {
-        return;
+        continue;
       }
       if (data['@type'] === 'MusicComposition') {
         title = data.name || title;
@@ -969,14 +1011,17 @@ async function scrapeAppleMusicMeta(inputUrl) {
         title = data.name || title;
         artist = data.byArtist?.[0]?.name || data.author?.name || artist;
       }
-    });
-
-    if (!title) {
-      const ogTitle = $('meta[property="og:title"]').attr('content') || '';
-      title = ogTitle.replace(/\s*[-|].*$/, '').trim();
+      if (title && artist) break;
     }
 
-    return { title, artist };
+    if (!title) {
+      const ogMatch = html.match(/<meta property="og:title" content="([^"]*)"/);
+      if (ogMatch) title = decodeHtmlEntities(ogMatch[1]).replace(/\s*[-|].*$/, '').trim();
+    }
+
+    const result = { title, artist };
+    setAppleMetaCache(cacheKey, result);
+    return result;
   } catch (err) {
     console.error('Apple scrape error:', err.response?.status, err.message);
     return {};

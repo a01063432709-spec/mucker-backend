@@ -217,6 +217,36 @@
 
   @media (max-width: 600px) {
     .form-grid { grid-template-columns: 1fr; }
+
+    header { padding: 14px 16px; }
+    .logo { font-size: 22px; }
+    nav { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    nav .btn { padding: 6px 12px; font-size: 12px; }
+
+    main { padding: 0 16px; }
+
+    .hero { padding: 48px 0 36px; }
+    .hero p { font-size: 15px; padding: 0 8px; }
+    .hero-btns { flex-direction: column; align-items: stretch; }
+
+    .notice-banner { padding: 10px 16px; font-size: 12px; }
+
+    .playlist-grid { grid-template-columns: 1fr; }
+
+    .modal-overlay { padding: 12px; }
+    .modal { padding: 20px; max-height: 85vh; border-radius: 18px; }
+    .modal-form { max-width: 100%; }
+    .modal-title { font-size: 19px; }
+
+    .card-meta { flex-wrap: wrap; gap: 10px; }
+    .card-meta > div { flex-wrap: wrap; row-gap: 6px; }
+
+    .comment-form-row { flex-direction: column; }
+    .comment-form input { width: 100%; }
+
+    .track-item { padding: 10px 12px; }
+    .track-inputs { gap: 8px; }
+    .track-inputs input { min-width: 100%; }
   }
 
   .input-group {
@@ -250,6 +280,35 @@
   .input-group textarea {
     resize: vertical;
     min-height: 80px;
+  }
+
+  .cover-upload {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .cover-preview {
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: var(--text2);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .cover-upload input[type="file"] {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text2);
   }
 
   .track-list {
@@ -619,6 +678,15 @@
     font-size: 22px;
   }
 
+  .modal-cover {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 14px;
+    background-size: cover;
+    background-position: center;
+    margin-bottom: 16px;
+  }
+
   .close-btn {
     background: var(--surface2);
     border: none;
@@ -832,6 +900,14 @@
       <button class="close-btn" onclick="closeCreateModalDirect()">×</button>
     </div>
 
+    <div class="input-group" style="margin-bottom:16px">
+      <label>커버 이미지 (선택)</label>
+      <div class="cover-upload">
+        <div class="cover-preview" id="pl-cover-preview">🎵</div>
+        <input type="file" id="pl-cover" accept="image/*" onchange="previewCoverImage(this, 'pl-cover-preview')">
+      </div>
+    </div>
+
     <div class="form-grid">
       <div class="input-group">
         <label>플레이리스트 이름 *</label>
@@ -886,6 +962,7 @@
 
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
+    <div class="modal-cover" id="modal-cover" style="display:none"></div>
     <div class="modal-header">
       <div class="modal-title" id="modal-title"></div>
       <button class="close-btn" onclick="closeModalDirect()">×</button>
@@ -912,6 +989,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
   import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
 
   const BACKEND_BASE_URL = 'https://mucker-backend.onrender.com';
 
@@ -927,6 +1005,7 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const storage = getStorage(app);
 
   let trackCount = 1;
   let currentPlaylistId = null;
@@ -1338,6 +1417,18 @@
 
     const genres = Array.from(document.querySelectorAll('#genre-tags .genre-tag.selected')).map(el => el.textContent);
 
+    let coverUrl = '';
+    const coverFile = document.getElementById('pl-cover').files?.[0];
+    if (coverFile) {
+      try {
+        coverUrl = await uploadCoverImage(coverFile, 'covers/playlists');
+      } catch (error) {
+        console.error('Cover upload error:', error);
+        showToast('커버 이미지 업로드에 실패했어요.');
+        return;
+      }
+    }
+
     try {
       await addDoc(collection(db, 'playlists'), {
         name,
@@ -1352,6 +1443,7 @@
         floUrl,
         genieUrl,
         genres,
+        coverUrl,
         likes: 0,
         views: 0,
         createdAt: serverTimestamp()
@@ -1362,6 +1454,9 @@
       document.getElementById('pl-desc').value = '';
       document.getElementById('pl-author').value = '';
       document.getElementById('music-url').value = '';
+      document.getElementById('pl-cover').value = '';
+      document.getElementById('pl-cover-preview').style.backgroundImage = '';
+      document.getElementById('pl-cover-preview').textContent = '🎵';
       document.querySelectorAll('#genre-tags .genre-tag.selected').forEach(el => el.classList.remove('selected'));
       document.getElementById('track-list').innerHTML = `
         <div class="track-item">
@@ -1375,6 +1470,7 @@
       `;
       trackCount = 1;
 
+      clearPlaylistDraft();
       closeCreateModalDirect();
       showToast('플리가 공유됐어요! 🎉');
       loadPlaylists();
@@ -1397,7 +1493,7 @@
         const shared = allPlaylists.find(p => p.id === sharedId);
         if (shared) {
           const pl = shared.data;
-          openModal(shared.id, pl.name, pl.emoji || '', pl.tracks, pl.spotifyUrl || '', pl.appleUrl || '', pl.youtubeUrl || '');
+          openModal(shared.id, pl.name, pl.emoji || '', pl.tracks, pl.spotifyUrl || '', pl.appleUrl || '', pl.youtubeUrl || '', pl.coverUrl || '');
         }
       }
     } catch (error) {
@@ -1455,9 +1551,9 @@
       ].filter(Boolean);
 
       return `
-        <div class="playlist-card" onclick="openModal(${esc(JSON.stringify(id))}, ${esc(JSON.stringify(pl.name))}, ${esc(JSON.stringify(pl.emoji || ''))}, ${esc(JSON.stringify(pl.tracks))}, ${esc(JSON.stringify(pl.spotifyUrl || ''))}, ${esc(JSON.stringify(pl.appleUrl || ''))}, ${esc(JSON.stringify(pl.youtubeUrl || ''))})">
-          <div class="card-cover" style="background: ${gradient}">
-            <span style="position:relative;z-index:1">${pl.emoji || '🎵'}</span>
+        <div class="playlist-card" onclick="openModal(${esc(JSON.stringify(id))}, ${esc(JSON.stringify(pl.name))}, ${esc(JSON.stringify(pl.emoji || ''))}, ${esc(JSON.stringify(pl.tracks))}, ${esc(JSON.stringify(pl.spotifyUrl || ''))}, ${esc(JSON.stringify(pl.appleUrl || ''))}, ${esc(JSON.stringify(pl.youtubeUrl || ''))}, ${esc(JSON.stringify(pl.coverUrl || ''))})">
+          <div class="card-cover" style="background: ${pl.coverUrl ? `url('${pl.coverUrl}') center/cover` : gradient}">
+            ${pl.coverUrl ? '' : `<span style="position:relative;z-index:1">${pl.emoji || '🎵'}</span>`}
           </div>
           <div class="card-body">
             <div class="card-title">${pl.name}${pl.melonUrl ? ` <span style="display:inline-block; vertical-align:middle; font-size:11px; font-weight:700; color:#00cd3c; background:rgba(0,205,60,0.12); border:1px solid rgba(0,205,60,0.3); border-radius:999px; padding:2px 8px; margin-left:6px;">멜론</span>` : ''}</div>
@@ -1514,9 +1610,17 @@
       .catch(() => showToast('링크 복사에 실패했어요.'));
   };
 
-  window.openModal = function(id, name, emoji, tracks, spotifyUrl, appleUrl, youtubeUrl) {
+  window.openModal = function(id, name, emoji, tracks, spotifyUrl, appleUrl, youtubeUrl, coverUrl) {
     currentPlaylistId = id;
     document.getElementById('modal-title').textContent = `${emoji} ${name}`;
+
+    const coverEl = document.getElementById('modal-cover');
+    if (coverUrl) {
+      coverEl.style.backgroundImage = `url('${coverUrl}')`;
+      coverEl.style.display = 'block';
+    } else {
+      coverEl.style.display = 'none';
+    }
 
     updateDoc(doc(db, 'playlists', id), { views: increment(1) }).catch(err => console.error('Error incrementing views:', err));
 
@@ -1614,8 +1718,81 @@
     setTimeout(() => t.classList.remove('show'), 2500);
   };
 
+  // Shows a local preview of a chosen cover image file before upload
+  window.previewCoverImage = function(input, previewId) {
+    const file = input.files?.[0];
+    const preview = document.getElementById(previewId);
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.style.backgroundImage = `url(${e.target.result})`;
+      preview.textContent = '';
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Uploads a cover image file to Firebase Storage and returns its download URL
+  async function uploadCoverImage(file, folder) {
+    const path = `${folder}/${Date.now()}_${file.name}`;
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    return getDownloadURL(storageRef);
+  }
+
+  const PLAYLIST_DRAFT_KEY = 'mucker_playlist_draft';
+  const PLAYLIST_DRAFT_FIELDS = ['pl-name', 'pl-emoji', 'pl-desc', 'pl-author', 'music-url'];
+
+  function savePlaylistDraft() {
+    const draft = {};
+    PLAYLIST_DRAFT_FIELDS.forEach(id => { draft[id] = document.getElementById(id).value; });
+    draft.genres = Array.from(document.querySelectorAll('#genre-tags .genre-tag.selected')).map(el => el.textContent);
+    draft.tracks = Array.from(document.querySelectorAll('#track-list .track-item')).map(item => ({
+      title: item.querySelector('.track-title').value,
+      artist: item.querySelector('.track-artist').value,
+    }));
+    localStorage.setItem(PLAYLIST_DRAFT_KEY, JSON.stringify(draft));
+  }
+
+  function restorePlaylistDraft() {
+    const raw = localStorage.getItem(PLAYLIST_DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw);
+      PLAYLIST_DRAFT_FIELDS.forEach(id => { document.getElementById(id).value = draft[id] || ''; });
+
+      document.querySelectorAll('#genre-tags .genre-tag').forEach(el => {
+        el.classList.toggle('selected', (draft.genres || []).includes(el.textContent));
+      });
+
+      if (draft.tracks?.length) {
+        document.getElementById('track-list').innerHTML = draft.tracks.map((t, i) => `
+          <div class="track-item">
+            <div class="track-num">${i + 1}</div>
+            <div class="track-inputs">
+              <input type="text" placeholder="곡 제목" class="track-title" value="${escapeHtml(t.title)}">
+              <input type="text" placeholder="아티스트" class="track-artist" value="${escapeHtml(t.artist)}">
+            </div>
+            <button class="remove-btn" onclick="removeTrack(this)">×</button>
+          </div>
+        `).join('');
+        trackCount = draft.tracks.length;
+      }
+    } catch (error) {
+      console.error('Error restoring playlist draft:', error);
+    }
+  }
+
+  function clearPlaylistDraft() {
+    localStorage.removeItem(PLAYLIST_DRAFT_KEY);
+  }
+
+  document.getElementById('create-modal').addEventListener('input', savePlaylistDraft);
+  document.getElementById('create-modal').addEventListener('click', savePlaylistDraft);
+
   window.openCreateModal = function() {
+    restorePlaylistDraft();
     document.getElementById('create-modal-overlay').classList.add('open');
+    autofillPlaylistInfo();
   };
 
   window.closeCreateModal = function(e) {

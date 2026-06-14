@@ -188,6 +188,29 @@
 
   @media (max-width: 600px) {
     .form-grid { grid-template-columns: 1fr; }
+
+    header { padding: 14px 16px; }
+    .logo { font-size: 22px; }
+    nav { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    nav .btn { padding: 6px 12px; font-size: 12px; }
+
+    main { padding: 24px 16px 60px; }
+
+    .hero { padding: 48px 0 36px; }
+    .hero p { font-size: 15px; padding: 0 8px; }
+    .hero-btns { flex-direction: column; align-items: stretch; }
+
+    .modal-overlay { padding: 12px; }
+    .modal { padding: 20px; max-height: 85vh; border-radius: 18px; }
+    .modal-form { max-width: 100%; }
+    .modal-title { font-size: 19px; }
+
+    .song-row { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
+    .song-info { flex: 1 1 150px; }
+    .song-meta { flex-wrap: wrap; gap: 8px 12px; flex-basis: 100%; justify-content: flex-start; }
+
+    .comment-form-row { flex-direction: column; }
+    .comment-form input { width: 100%; }
   }
 
   .input-group {
@@ -223,6 +246,49 @@
     flex-direction: column;
     gap: 10px;
     animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .cover-upload {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .cover-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: var(--text2);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .cover-upload input[type="file"] {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .song-cover {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+  }
+  .modal-cover {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 14px;
+    background-size: cover;
+    background-position: center;
+    margin-bottom: 16px;
   }
 
   .song-row {
@@ -538,6 +604,9 @@
 
   <section id="song-section">
     <div class="section-title" style="margin-bottom:16px"><div class="dot"></div>공유된 곡</div>
+    <div class="input-group" style="margin-bottom:16px">
+      <input type="text" id="search-input" placeholder="곡 제목, 아티스트, 닉네임으로 검색해보세요" oninput="onSearchInput(this.value)">
+    </div>
     <div class="song-list" id="song-list">
       <div class="loading"><div class="spinner"></div></div>
     </div>
@@ -549,6 +618,14 @@
     <div class="modal-header">
       <div class="modal-title">곡 공유</div>
       <button class="close-btn" onclick="closeCreateSongModalDirect()">×</button>
+    </div>
+
+    <div class="input-group" style="margin-bottom:16px">
+      <label>커버 이미지 (선택)</label>
+      <div class="cover-upload">
+        <div class="cover-preview" id="song-cover-preview">🎵</div>
+        <input type="file" id="song-cover" accept="image/*" onchange="previewCoverImage(this, 'song-cover-preview')">
+      </div>
     </div>
 
     <div class="form-grid">
@@ -580,6 +657,7 @@
 
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
+    <div class="modal-cover" id="modal-cover" style="display:none"></div>
     <div class="modal-header">
       <div class="modal-title" id="modal-title"></div>
       <button class="close-btn" onclick="closeModalDirect()">×</button>
@@ -604,6 +682,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
   import { getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBdW9OvqKQVQ5ExZB53i0P1piRHAGKfKuA",
@@ -617,6 +696,7 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const storage = getStorage(app);
 
   const BACKEND_BASE_URL = 'https://mucker-backend.onrender.com';
 
@@ -719,6 +799,38 @@
 
   let allSongs = [];
   let currentSongId = null;
+  let searchQuery = '';
+
+  window.onSearchInput = function(value) {
+    searchQuery = value.trim().toLowerCase();
+    renderSongs();
+  };
+
+  const SONG_DRAFT_KEY = 'mucker_song_draft';
+  const SONG_DRAFT_FIELDS = ['song-title', 'song-artist', 'song-author', 'song-url'];
+
+  function saveSongDraft() {
+    const draft = {};
+    SONG_DRAFT_FIELDS.forEach(id => { draft[id] = document.getElementById(id).value; });
+    localStorage.setItem(SONG_DRAFT_KEY, JSON.stringify(draft));
+  }
+
+  function restoreSongDraft() {
+    const raw = localStorage.getItem(SONG_DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw);
+      SONG_DRAFT_FIELDS.forEach(id => { document.getElementById(id).value = draft[id] || ''; });
+    } catch (error) {
+      console.error('Error restoring song draft:', error);
+    }
+  }
+
+  function clearSongDraft() {
+    localStorage.removeItem(SONG_DRAFT_KEY);
+  }
+
+  document.getElementById('create-song-modal').addEventListener('input', saveSongDraft);
 
   const LIKED_KEY = 'mucker_liked_songs';
 
@@ -767,6 +879,27 @@
       .catch(() => showToast('링크 복사에 실패했어요.'));
   };
 
+  // Shows a local preview of a chosen cover image file before upload
+  window.previewCoverImage = function(input, previewId) {
+    const file = input.files?.[0];
+    const preview = document.getElementById(previewId);
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.style.backgroundImage = `url(${e.target.result})`;
+      preview.textContent = '';
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Uploads a cover image file to Firebase Storage and returns its download URL
+  async function uploadCoverImage(file, folder) {
+    const path = `${folder}/${Date.now()}_${file.name}`;
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    return getDownloadURL(storageRef);
+  }
+
   window.submitSong = async function() {
     const title = stripCombiningMarks(document.getElementById('song-title').value.trim());
     const artist = stripCombiningMarks(document.getElementById('song-artist').value.trim());
@@ -790,11 +923,18 @@
     }
 
     try {
+      let coverUrl = '';
+      const coverFile = document.getElementById('song-cover').files?.[0];
+      if (coverFile) {
+        coverUrl = await uploadCoverImage(coverFile, 'covers/songs');
+      }
+
       await addDoc(collection(db, 'songs'), {
         title,
         artist,
         author,
         url,
+        coverUrl,
         platform: platform.label,
         clicks: 0,
         createdAt: serverTimestamp()
@@ -804,7 +944,12 @@
       document.getElementById('song-artist').value = '';
       document.getElementById('song-author').value = '';
       document.getElementById('song-url').value = '';
+      document.getElementById('song-cover').value = '';
+      const coverPreview = document.getElementById('song-cover-preview');
+      coverPreview.style.backgroundImage = '';
+      coverPreview.textContent = '🎵';
 
+      clearSongDraft();
       closeCreateSongModalDirect();
       showToast('곡이 공유됐어요! 🎵');
       loadSongs();
@@ -840,11 +985,27 @@
       return;
     }
 
-    list.innerHTML = allSongs.map(({ id, data: s }) => {
+    let items = allSongs;
+    if (searchQuery) {
+      items = items.filter(({ data: s }) => {
+        const inTitle = (s.title || '').toLowerCase().includes(searchQuery);
+        const inArtist = (s.artist || '').toLowerCase().includes(searchQuery);
+        const inAuthor = (s.author || '').toLowerCase().includes(searchQuery);
+        return inTitle || inArtist || inAuthor;
+      });
+    }
+
+    if (items.length === 0) {
+      list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text2)">검색 결과가 없어요.</div>`;
+      return;
+    }
+
+    list.innerHTML = items.map(({ id, data: s }) => {
       const platformInfo = PLATFORM_INFO.find(p => p.label === s.platform);
       const color = platformInfo ? platformInfo.color : 'var(--text2)';
       return `
         <div class="song-row" onclick="openSongModal(${esc(JSON.stringify(id))})">
+          ${s.coverUrl ? `<div class="song-cover" style="background-image:url('${s.coverUrl}')"></div>` : ''}
           <div class="song-info">
             <div class="song-title">${escapeHtml(s.title)}</div>
             <div class="song-artist">${escapeHtml(s.artist)} · ${escapeHtml(s.author)}</div>
@@ -883,6 +1044,14 @@
     currentSongId = id;
     document.getElementById('modal-title').textContent = s.title;
 
+    const coverEl = document.getElementById('modal-cover');
+    if (s.coverUrl) {
+      coverEl.style.backgroundImage = `url('${s.coverUrl}')`;
+      coverEl.style.display = 'block';
+    } else {
+      coverEl.style.display = 'none';
+    }
+
     const platformInfo = PLATFORM_INFO.find(p => p.label === s.platform);
     const color = platformInfo ? platformInfo.color : 'var(--text2)';
 
@@ -908,7 +1077,9 @@
   };
 
   window.openCreateSongModal = function() {
+    restoreSongDraft();
     document.getElementById('create-song-modal-overlay').classList.add('open');
+    autofillSongInfo();
   };
 
   window.closeCreateSongModal = function(e) {
