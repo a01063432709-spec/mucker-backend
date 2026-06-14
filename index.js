@@ -778,14 +778,8 @@ app.get('/api/meta/playlist', async (req, res) => {
     }
 
     if (inputUrl.includes('music.apple.com')) {
-      const m = inputUrl.match(/music\.apple\.com\/(\w{2})\/playlist\/[^\/?]+\/(pl\.[\w.-]+)/);
-      if (!m) return res.json({});
-      const devToken = getAppleDeveloperToken();
-      const resp = await axios.get(`https://api.music.apple.com/v1/catalog/${m[1]}/playlists/${m[2]}`, {
-        headers: { Authorization: `Bearer ${devToken}` },
-        params: { fields: 'name' },
-      });
-      return res.json({ name: resp.data.data?.[0]?.attributes?.name || '' });
+      const { title } = await scrapeAppleMusicMeta(inputUrl);
+      return res.json({ name: title || '' });
     }
 
     if (inputUrl.includes('music.youtube.com') || inputUrl.includes('youtube.com/playlist')) {
