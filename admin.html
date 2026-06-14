@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mucKer — 관리자</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --accent: #7c4dff;
+    --accent2: #ff4d8d;
+    --accent3: #4dffb4;
+    --text: #f0f0f8;
+    --text2: #888899;
+    --border: rgba(255,255,255,0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 22px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  /* Login */
+  #login-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    gap: 16px;
+  }
+
+  #login-view h1 {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  #login-password {
+    width: 280px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  #login-password:focus { outline: 1px solid var(--accent); }
+
+  .btn {
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .btn:hover { opacity: 0.9; }
+
+  .btn-danger {
+    background: var(--accent2);
+  }
+
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  /* Admin view */
+  #admin-view { display: none; }
+
+  .playlist-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+
+  .playlist-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    cursor: pointer;
+  }
+
+  .playlist-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .playlist-emoji { font-size: 22px; }
+
+  .playlist-name { font-weight: 700; font-size: 15px; }
+
+  .playlist-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  .playlist-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .comments-panel {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 14px 20px;
+    background: var(--surface2);
+  }
+
+  .comments-panel.open { display: block; }
+
+  .comment-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .comment-row:last-child { border-bottom: none; }
+
+  .comment-author { font-weight: 500; font-size: 13px; }
+
+  .comment-text { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text2);
+  }
+
+  .section-gap { margin-bottom: 48px; }
+
+  .notice-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .notice-form textarea, .notice-edit-textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 70px;
+  }
+
+  .notice-form textarea:focus, .notice-edit-textarea:focus { outline: 1px solid var(--accent); }
+
+  .notice-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .notice-text {
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .notice-meta { font-size: 12px; color: var(--text2); margin-top: 6px; }
+
+  .notice-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  .notice-edit-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    transition: transform 0.3s ease;
+    z-index: 1000;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .stats-grid {
+    display: flex;
+    gap: 14px;
+  }
+
+  .stat-card {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">mucKer Admin</div>
+</header>
+
+<div class="container">
+  <div id="login-view">
+    <h1>관리자 로그인</h1>
+    <input type="password" id="login-password" placeholder="비밀번호를 입력하세요">
+    <button class="btn" onclick="login()">로그인</button>
+  </div>
+
+  <div id="admin-view">
+    <div class="section-gap">
+      <h2 style="margin-bottom:20px">방문자 통계</h2>
+      <div class="stats-grid" id="analytics-stats"></div>
+    </div>
+
+    <div class="section-gap">
+      <h2 style="margin-bottom:20px">공지사항 관리</h2>
+      <div class="notice-form">
+        <textarea id="notice-input" placeholder="공지 내용을 입력하세요" rows="3"></textarea>
+        <button class="btn" onclick="submitNotice()" style="align-self:flex-start">공지 등록</button>
+      </div>
+      <div id="notice-list"></div>
+    </div>
+
+    <div class="section-gap">
+      <h2 style="margin-bottom:20px">플레이리스트 관리</h2>
+      <div id="playlist-list"></div>
+    </div>
+
+    <h2 style="margin-bottom:20px">곡 관리</h2>
+    <div id="song-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+  import { getFirestore, collection, getDocs, onSnapshot, query, orderBy, doc, deleteDoc, addDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBdW9OvqKQVQ5ExZB53i0P1piRHAGKfKuA",
+    authDomain: "mucker-ca90a.firebaseapp.com",
+    projectId: "mucker-ca90a",
+    storageBucket: "mucker-ca90a.firebasestorage.app",
+    messagingSenderId: "221353818492",
+    appId: "1:221353818492:web:fb0396da5fd29ea7864cf9",
+    measurementId: "G-GKY7N9RTPJ"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const ADMIN_PASSWORD = 'jhsi1006!';
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  function escapeHtml(str) {
+    return (str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  window.login = function() {
+    const pw = document.getElementById('login-password').value;
+    if (pw !== ADMIN_PASSWORD) {
+      showToast('비밀번호가 틀렸어요.');
+      return;
+    }
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('admin-view').style.display = 'block';
+    loadAnalytics();
+    initRealtimeListeners();
+  };
+
+  let listenersInitialized = false;
+  function initRealtimeListeners() {
+    if (listenersInitialized) return;
+    listenersInitialized = true;
+    setupNoticesListener();
+    setupPlaylistsListener();
+    setupSongsListener();
+  }
+
+  function getDateKey(d = new Date()) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  async function loadAnalytics() {
+    const container = document.getElementById('analytics-stats');
+    container.innerHTML = `<div class="empty-state">불러오는 중...</div>`;
+    try {
+      const snapshot = await getDocs(collection(db, 'analytics'));
+      const today = getDateKey();
+      const monthPrefix = today.slice(0, 7);
+      let dailyCount = 0;
+      let monthlyCount = 0;
+      snapshot.docs.forEach(d => {
+        const count = d.data().count || 0;
+        if (d.id === today) dailyCount = count;
+        if (d.id.startsWith(monthPrefix)) monthlyCount += count;
+      });
+      container.innerHTML = `
+        <div class="stat-card">
+          <div class="stat-value">${dailyCount}</div>
+          <div class="stat-label">오늘 방문자</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${monthlyCount}</div>
+          <div class="stat-label">이번 달 방문자</div>
+        </div>
+      `;
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+      container.innerHTML = `<div class="empty-state">통계를 불러오는데 실패했어요.</div>`;
+    }
+  }
+
+  document.getElementById('login-password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') window.login();
+  });
+
+  let notices = [];
+  let editingNoticeId = null;
+
+  function setupNoticesListener() {
+    const list = document.getElementById('notice-list');
+    list.innerHTML = `<div class="empty-state">불러오는 중...</div>`;
+    const q = query(collection(db, 'notices'), orderBy('createdAt', 'desc'));
+    onSnapshot(q, snapshot => {
+      notices = snapshot.docs.map(d => ({ id: d.id, data: d.data() }));
+      renderNotices();
+    }, error => {
+      console.error('Error loading notices:', error);
+      list.innerHTML = `<div class="empty-state">공지를 불러오는데 실패했어요.</div>`;
+    });
+  }
+
+  function renderNotices() {
+    const list = document.getElementById('notice-list');
+    if (notices.length === 0) {
+      list.innerHTML = `<div class="empty-state">등록된 공지가 없어요.</div>`;
+      return;
+    }
+    list.innerHTML = notices.map(({ id, data: n }) => {
+      const date = n.createdAt?.toDate ? n.createdAt.toDate().toLocaleString('ko-KR') : '';
+      if (editingNoticeId === id) {
+        return `
+          <div class="notice-row">
+            <div style="flex:1">
+              <textarea class="notice-edit-textarea" id="edit-input-${id}" rows="3">${escapeHtml(n.text)}</textarea>
+              <div class="notice-edit-actions">
+                <button class="btn btn-sm" onclick="saveNotice('${id}')">저장</button>
+                <button class="btn btn-sm" onclick="cancelEditNotice()">취소</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div class="notice-row">
+          <div style="flex:1">
+            <div class="notice-text">${escapeHtml(n.text)}</div>
+            <div class="notice-meta">${date}</div>
+          </div>
+          <div class="notice-actions">
+            <button class="btn btn-sm" onclick="startEditNotice('${id}')">수정</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteNotice('${id}')">삭제</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  window.submitNotice = async function() {
+    const input = document.getElementById('notice-input');
+    const text = input.value.trim();
+    if (!text) { showToast('공지 내용을 입력해주세요.'); return; }
+    try {
+      await addDoc(collection(db, 'notices'), { text, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      input.value = '';
+      showToast('공지가 등록되었어요.');
+    } catch (error) {
+      console.error('Error adding notice:', error);
+      showToast('공지 등록에 실패했어요.');
+    }
+  };
+
+  window.startEditNotice = function(id) {
+    editingNoticeId = id;
+    renderNotices();
+  };
+
+  window.cancelEditNotice = function() {
+    editingNoticeId = null;
+    renderNotices();
+  };
+
+  window.saveNotice = async function(id) {
+    const textarea = document.getElementById(`edit-input-${id}`);
+    const text = textarea.value.trim();
+    if (!text) { showToast('공지 내용을 입력해주세요.'); return; }
+    try {
+      await updateDoc(doc(db, 'notices', id), { text, updatedAt: serverTimestamp() });
+      editingNoticeId = null;
+      showToast('공지가 수정되었어요.');
+    } catch (error) {
+      console.error('Error updating notice:', error);
+      showToast('공지 수정에 실패했어요.');
+    }
+  };
+
+  window.deleteNotice = async function(id) {
+    if (!confirm('이 공지를 삭제하시겠어요?')) return;
+    try {
+      await deleteDoc(doc(db, 'notices', id));
+      showToast('공지가 삭제되었어요.');
+    } catch (error) {
+      console.error('Error deleting notice:', error);
+      showToast('공지 삭제에 실패했어요.');
+    }
+  };
+
+  const openCommentPanels = new Set();
+
+  function setupPlaylistsListener() {
+    const list = document.getElementById('playlist-list');
+    list.innerHTML = `<div class="empty-state">불러오는 중...</div>`;
+    const q = query(collection(db, 'playlists'), orderBy('createdAt', 'desc'));
+    onSnapshot(q, snapshot => {
+      renderPlaylists(snapshot.docs);
+    }, error => {
+      console.error('Error loading playlists:', error);
+      list.innerHTML = `<div class="empty-state">데이터를 불러오는데 실패했어요.</div>`;
+    });
+  }
+
+  function renderPlaylists(docs) {
+    const list = document.getElementById('playlist-list');
+    if (docs.length === 0) {
+      list.innerHTML = `<div class="empty-state">등록된 플레이리스트가 없어요.</div>`;
+      return;
+    }
+    list.innerHTML = docs.map(docSnap => {
+      const pl = docSnap.data();
+      return `
+        <div class="playlist-row" data-id="${docSnap.id}">
+          <div class="playlist-head" onclick="toggleComments('${docSnap.id}')">
+            <div class="playlist-info">
+              <div class="playlist-emoji">${pl.emoji || '🎵'}</div>
+              <div>
+                <div class="playlist-name">${escapeHtml(pl.name)}</div>
+                <div class="playlist-meta">${escapeHtml(pl.author || '')} · 조회 ${pl.views || 0} · 트랙 ${pl.tracks ? pl.tracks.length : 0}개</div>
+              </div>
+            </div>
+            <div class="playlist-actions">
+              <button class="btn btn-sm" onclick="event.stopPropagation(); toggleComments('${docSnap.id}')">댓글 보기</button>
+              <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deletePlaylistAdmin('${docSnap.id}')">플레이리스트 삭제</button>
+            </div>
+          </div>
+          <div class="comments-panel" id="comments-${docSnap.id}"></div>
+        </div>
+      `;
+    }).join('');
+
+    // Re-open comment panels that were open before this re-render
+    openCommentPanels.forEach(playlistId => {
+      const panel = document.getElementById(`comments-${playlistId}`);
+      if (!panel) return;
+      panel.classList.add('open');
+      loadCommentsPanel(playlistId);
+    });
+  }
+
+  async function loadCommentsPanel(playlistId) {
+    const panel = document.getElementById(`comments-${playlistId}`);
+    if (!panel) return;
+    panel.innerHTML = `<div class="empty-state">불러오는 중...</div>`;
+    try {
+      const q = query(collection(db, 'playlists', playlistId, 'comments'), orderBy('createdAt', 'asc'));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        panel.innerHTML = `<div class="empty-state">댓글이 없어요.</div>`;
+        return;
+      }
+      panel.innerHTML = snapshot.docs.map(commentSnap => {
+        const c = commentSnap.data();
+        return `
+          <div class="comment-row">
+            <div>
+              <div class="comment-author">${escapeHtml(c.author)}</div>
+              <div class="comment-text">${escapeHtml(c.text)}</div>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="deleteCommentAdmin('${playlistId}', '${commentSnap.id}')">삭제</button>
+          </div>
+        `;
+      }).join('');
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      panel.innerHTML = `<div class="empty-state">댓글을 불러오는데 실패했어요.</div>`;
+    }
+  }
+
+  window.toggleComments = async function(playlistId) {
+    const panel = document.getElementById(`comments-${playlistId}`);
+    const isOpen = panel.classList.contains('open');
+    if (isOpen) {
+      panel.classList.remove('open');
+      openCommentPanels.delete(playlistId);
+      return;
+    }
+    panel.classList.add('open');
+    openCommentPanels.add(playlistId);
+    await loadCommentsPanel(playlistId);
+  };
+
+  window.deleteCommentAdmin = async function(playlistId, commentId) {
+    if (!confirm('이 댓글을 삭제하시겠어요?')) return;
+    try {
+      await deleteDoc(doc(db, 'playlists', playlistId, 'comments', commentId));
+      showToast('댓글이 삭제되었어요.');
+      await loadCommentsPanel(playlistId);
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      showToast('댓글 삭제에 실패했어요.');
+    }
+  };
+
+  window.deletePlaylistAdmin = async function(playlistId) {
+    if (!confirm('정말 이 플레이리스트와 모든 댓글을 삭제하시겠어요?')) return;
+    try {
+      const commentsSnapshot = await getDocs(collection(db, 'playlists', playlistId, 'comments'));
+      await Promise.all(commentsSnapshot.docs.map(c => deleteDoc(c.ref)));
+      await deleteDoc(doc(db, 'playlists', playlistId));
+      openCommentPanels.delete(playlistId);
+      showToast('삭제되었어요.');
+    } catch (error) {
+      console.error('Error deleting playlist:', error);
+      showToast('삭제에 실패했어요.');
+    }
+  };
+
+  function setupSongsListener() {
+    const list = document.getElementById('song-list');
+    list.innerHTML = `<div class="empty-state">불러오는 중...</div>`;
+    const q = query(collection(db, 'songs'), orderBy('createdAt', 'desc'));
+    onSnapshot(q, snapshot => {
+      renderSongs(snapshot.docs);
+    }, error => {
+      console.error('Error loading songs:', error);
+      list.innerHTML = `<div class="empty-state">데이터를 불러오는데 실패했어요.</div>`;
+    });
+  }
+
+  const openSongCommentPanels = new Set();
+
+  function renderSongs(docs) {
+    const list = document.getElementById('song-list');
+    if (docs.length === 0) {
+      list.innerHTML = `<div class="empty-state">등록된 곡이 없어요.</div>`;
+      return;
+    }
+    list.innerHTML = docs.map(docSnap => {
+      const s = docSnap.data();
+      return `
+        <div class="playlist-row" data-id="${docSnap.id}">
+          <div class="playlist-head" onclick="toggleSongComments('${docSnap.id}')">
+            <div class="playlist-info">
+              <div>
+                <div class="playlist-name">${escapeHtml(s.title)}</div>
+                <div class="playlist-meta">${escapeHtml(s.artist || '')} · 클릭 ${s.clicks || 0}</div>
+              </div>
+            </div>
+            <div class="playlist-actions">
+              <button class="btn btn-sm" onclick="event.stopPropagation(); toggleSongComments('${docSnap.id}')">댓글 보기</button>
+              <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteSongAdmin('${docSnap.id}')">삭제</button>
+            </div>
+          </div>
+          <div class="comments-panel" id="song-comments-${docSnap.id}"></div>
+        </div>
+      `;
+    }).join('');
+
+    // Re-open comment panels that were open before this re-render
+    openSongCommentPanels.forEach(songId => {
+      const panel = document.getElementById(`song-comments-${songId}`);
+      if (!panel) return;
+      panel.classList.add('open');
+      loadSongCommentsPanel(songId);
+    });
+  }
+
+  async function loadSongCommentsPanel(songId) {
+    const panel = document.getElementById(`song-comments-${songId}`);
+    if (!panel) return;
+    panel.innerHTML = `<div class="empty-state">불러오는 중...</div>`;
+    try {
+      const q = query(collection(db, 'songs', songId, 'comments'), orderBy('createdAt', 'asc'));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        panel.innerHTML = `<div class="empty-state">댓글이 없어요.</div>`;
+        return;
+      }
+      panel.innerHTML = snapshot.docs.map(commentSnap => {
+        const c = commentSnap.data();
+        return `
+          <div class="comment-row">
+            <div>
+              <div class="comment-author">${escapeHtml(c.author)}</div>
+              <div class="comment-text">${escapeHtml(c.text)}</div>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="deleteSongCommentAdmin('${songId}', '${commentSnap.id}')">삭제</button>
+          </div>
+        `;
+      }).join('');
+    } catch (error) {
+      console.error('Error loading song comments:', error);
+      panel.innerHTML = `<div class="empty-state">댓글을 불러오는데 실패했어요.</div>`;
+    }
+  }
+
+  window.toggleSongComments = async function(songId) {
+    const panel = document.getElementById(`song-comments-${songId}`);
+    const isOpen = panel.classList.contains('open');
+    if (isOpen) {
+      panel.classList.remove('open');
+      openSongCommentPanels.delete(songId);
+      return;
+    }
+    panel.classList.add('open');
+    openSongCommentPanels.add(songId);
+    await loadSongCommentsPanel(songId);
+  };
+
+  window.deleteSongCommentAdmin = async function(songId, commentId) {
+    if (!confirm('이 댓글을 삭제하시겠어요?')) return;
+    try {
+      await deleteDoc(doc(db, 'songs', songId, 'comments', commentId));
+      showToast('댓글이 삭제되었어요.');
+      await loadSongCommentsPanel(songId);
+    } catch (error) {
+      console.error('Error deleting song comment:', error);
+      showToast('댓글 삭제에 실패했어요.');
+    }
+  };
+
+  window.deleteSongAdmin = async function(songId) {
+    if (!confirm('정말 이 곡과 모든 댓글을 삭제하시겠어요?')) return;
+    try {
+      try {
+        const commentsSnapshot = await getDocs(collection(db, 'songs', songId, 'comments'));
+        await Promise.all(commentsSnapshot.docs.map(c => deleteDoc(c.ref)));
+      } catch (commentError) {
+        // Reading the comments subcollection can be permission-denied for some
+        // songs; don't let that block deleting the song document itself.
+        console.warn('Could not delete song comments:', commentError);
+      }
+      await deleteDoc(doc(db, 'songs', songId));
+      openSongCommentPanels.delete(songId);
+      showToast('삭제되었어요.');
+    } catch (error) {
+      console.error('Error deleting song:', error);
+      showToast('삭제에 실패했어요.');
+    }
+  };
+</script>
+
+</body>
+</html>
