@@ -946,6 +946,61 @@ app.get('/api/meta/song', async (req, res) => {
   }
 });
 
+// Apple Music serves a fully server-rendered page (with JSON-LD schema data) only
+// to crawler user agents — regular requests get an empty SPA shell.
+const APPLE_SCRAPE_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+};
+
+// Scrapes an Apple Music song/album/playlist page for its title and artist.
+// Returns {} if the URL isn't a music.apple.com link or nothing could be found.
+app.get('/api/meta/apple', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+
+  let parsed;
+  try {
+    parsed = new URL(inputUrl);
+  } catch {
+    return res.json({});
+  }
+  if (!/(^|\.)music\.apple\.com$/.test(parsed.hostname)) return res.json({});
+
+  try {
+    const resp = await axios.get(inputUrl, { headers: APPLE_SCRAPE_HEADERS, maxRedirects: 5, timeout: 8000 });
+    const $ = cheerio.load(resp.data);
+
+    let title = '';
+    let artist = '';
+
+    $('script[type="application/ld+json"]').each((_, el) => {
+      if (title && artist) return;
+      let data;
+      try {
+        data = JSON.parse($(el).contents().text());
+      } catch {
+        return;
+      }
+      if (data['@type'] === 'MusicComposition') {
+        title = data.name || title;
+        artist = data.audio?.byArtist?.[0]?.name || data.byArtist?.[0]?.name || artist;
+      } else if (data['@type'] === 'MusicPlaylist' || data['@type'] === 'MusicAlbum') {
+        title = data.name || title;
+        artist = data.byArtist?.[0]?.name || data.author?.name || artist;
+      }
+    });
+
+    if (!title) {
+      const ogTitle = $('meta[property="og:title"]').attr('content') || '';
+      title = ogTitle.replace(/\s*[-|].*$/, '').trim();
+    }
+
+    return res.json({ title, artist });
+  } catch (err) {
+    console.error('Apple scrape error:', err.response?.status, err.message);
+    return res.json({});
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
