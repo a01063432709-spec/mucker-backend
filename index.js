@@ -871,17 +871,7 @@ app.get('/api/meta/song', async (req, res) => {
     }
 
     if (inputUrl.includes('music.apple.com')) {
-      const m = inputUrl.match(/music\.apple\.com\/(\w{2})\/(?:song|album)\/[^\/?]+\/(\d+)/);
-      const iMatch = inputUrl.match(/[?&]i=(\d+)/);
-      const songId = iMatch ? iMatch[1] : m?.[2];
-      if (!songId) return res.json({});
-      const storefront = m?.[1] || 'us';
-      const devToken = getAppleDeveloperToken();
-      const resp = await axios.get(`https://api.music.apple.com/v1/catalog/${storefront}/songs/${songId}`, {
-        headers: { Authorization: `Bearer ${devToken}` },
-      });
-      const attrs = resp.data.data?.[0]?.attributes;
-      return res.json({ title: attrs?.name || '', artist: attrs?.artistName || '' });
+      return res.json(await scrapeAppleMusicMeta(inputUrl));
     }
 
     if (inputUrl.includes('music.youtube.com') || inputUrl.includes('youtube.com') || inputUrl.includes('youtu.be')) {
@@ -954,16 +944,14 @@ const APPLE_SCRAPE_HEADERS = {
 
 // Scrapes an Apple Music song/album/playlist page for its title and artist.
 // Returns {} if the URL isn't a music.apple.com link or nothing could be found.
-app.get('/api/meta/apple', async (req, res) => {
-  const inputUrl = (req.query.url || '').trim();
-
+async function scrapeAppleMusicMeta(inputUrl) {
   let parsed;
   try {
     parsed = new URL(inputUrl);
   } catch {
-    return res.json({});
+    return {};
   }
-  if (!/(^|\.)music\.apple\.com$/.test(parsed.hostname)) return res.json({});
+  if (!/(^|\.)music\.apple\.com$/.test(parsed.hostname)) return {};
 
   try {
     const resp = await axios.get(inputUrl, { headers: APPLE_SCRAPE_HEADERS, maxRedirects: 5, timeout: 8000 });
@@ -994,11 +982,16 @@ app.get('/api/meta/apple', async (req, res) => {
       title = ogTitle.replace(/\s*[-|].*$/, '').trim();
     }
 
-    return res.json({ title, artist });
+    return { title, artist };
   } catch (err) {
     console.error('Apple scrape error:', err.response?.status, err.message);
-    return res.json({});
+    return {};
   }
+}
+
+app.get('/api/meta/apple', async (req, res) => {
+  const inputUrl = (req.query.url || '').trim();
+  return res.json(await scrapeAppleMusicMeta(inputUrl));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
